@@ -1,0 +1,18 @@
+name: deformops:py313cuda12_8
+channels:
+  - nvidia/label/cuda-12.8.1
+  - conda-forge
+dependencies:
+  - python=3.13
+  - cuda=12.8.1
+  - cuda-cccl
+  - cudnn
+  - gcc=13.2
+  - gxx
+  - ffmpeg
+  - ninja
+  - pytorch-gpu
+variables:
+  FORCE_CUDA: 1
+  CUDA_HOME: '$CONDA_PREFIX'
+  CUDA_PATH: '$CONDA_PREFIX'

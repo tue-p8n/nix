@@ -1,0 +1,18 @@
+# Nix
+result
+result-*
+.direnv/
+
+# Direnv overlays (not committed; uncomment .env.example if you ship one)
+.env
+.env.local
+
+# UV / Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# NOTE: uv.lock is committed on purpose -- it drives the Nix build. See
+# README.md.

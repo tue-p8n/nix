@@ -1,0 +1,28 @@
+# Ignore build outputs from performing a nix-build or `nix build` command
+result
+result-*
+
+# Ignore automatically generated direnv output
+.direnv
+
+# Pre-commit (handled by Flake)
+.prek.yml
+.pre-commit-config.yaml
+
+# AI agents
+.claude
+!.claude/settings.json
+.antigravitycli
+
+# Various Python-related files
+__pycache__/
+*.pyc
+.mypy_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+dist/
+build/
+*.egg-info/
+.ruff_cache/

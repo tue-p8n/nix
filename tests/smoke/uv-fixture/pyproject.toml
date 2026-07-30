@@ -1,0 +1,9 @@
+[project]
+name = "uv-pytorch-triton-smoke"
+version = "0.0.0"
+description = "Fixture for the UV PyTorch+Triton end-to-end smoke test."
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.4",
+    "triton>=3.0",
+]

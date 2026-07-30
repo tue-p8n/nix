@@ -1,0 +1,20 @@
+[project]
+name = "fixture"
+version = "0.1.0"
+description = "Zero-dependency fixture for tests/uv2nix.nix"
+requires-python = ">=3.13"
+dependencies = []
+
+[project.optional-dependencies]
+# uv2nix's extras resolver requires a non-empty group (uv itself doesn't
+# record a `[package.optional-dependencies]` table entry in `uv.lock` for an
+# extra with zero deps) -- `iniconfig` is tiny, pure-Python, and dep-free.
+cpu = ["iniconfig"]
+
+[build-system]
+requires = ["uv_build>=0.9.30,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "fixture"
+module-root = "sources"

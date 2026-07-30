@@ -1,0 +1,11 @@
+# Nix
+result
+result-*
+.direnv/
+
+# Direnv overlays
+.env
+.env.local
+
+# Typst build output (figures and assets are not matched here)
+/document.pdf

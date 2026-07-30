@@ -1,0 +1,62 @@
+[project]
+name = "my-research-project"
+version = "0.1.0"
+description = "Research project using UV and CUDA, built natively with uv2nix"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = ["torch>=2.11"]
+
+[project.optional-dependencies]
+# Selected automatically by `accelerator` in flake.nix (mapped to
+# UV_TORCH_BACKEND by tue-p8n's accelerators.nix). Change the extras/indices
+# below if you need a different CUDA version than the ones listed.
+cpu = ["torch>=2.11"]
+cu126 = ["torch>=2.11"]
+cu128 = ["torch>=2.11"]
+cu129 = ["torch>=2.11"]
+
+[build-system]
+requires = ["uv_build>=0.9.30,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "my_research_project"
+module-root = "sources"
+
+[tool.uv]
+conflicts = [
+  [
+    {extra = "cpu"},
+    {extra = "cu126"},
+    {extra = "cu128"},
+    {extra = "cu129"},
+  ],
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu129"
+url = "https://download.pytorch.org/whl/cu129"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+  {index = "pytorch-cpu", extra = "cpu"},
+  {index = "pytorch-cu126", extra = "cu126"},
+  {index = "pytorch-cu128", extra = "cu128"},
+  {index = "pytorch-cu129", extra = "cu129"},
+]

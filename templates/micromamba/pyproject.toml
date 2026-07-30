@@ -1,0 +1,17 @@
+[project]
+name = "my-micromamba-project"
+version = "0.1.0"
+description = "Research project using Micromamba (Conda) + tue-p8n/nix"
+readme = "README.md"
+requires-python = ">=3.12"
+
+# Pure-Python dependencies installed via `pip install -e .` inside the env.
+# System / CUDA / heavy native deps belong in environment.yaml.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["ruff", "pytest"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

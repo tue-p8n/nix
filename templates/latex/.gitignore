@@ -1,0 +1,23 @@
+# Nix
+result
+result-*
+.direnv/
+
+# Direnv overlays
+.env
+.env.local
+
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.toc

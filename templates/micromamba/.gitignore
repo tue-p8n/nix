@@ -1,0 +1,18 @@
+# Nix
+result
+result-*
+.direnv/
+
+# Direnv overlays
+.env
+.env.local
+
+# Micromamba environment cache (created on first shell entry)
+.mamba/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
