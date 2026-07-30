@@ -26,3 +26,4 @@ dist/
 build/
 *.egg-info/
 .ruff_cache/
+.prek.yml
