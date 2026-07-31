@@ -10,12 +10,12 @@ here=$(dirname "$(readlink -f "$0")")
 fixture="$here/uv-fixture"
 
 if ! command -v uv >/dev/null; then
-    echo "ERROR: uv not found on PATH (are you inside a uv-* dev shell?)" >&2
-    exit 1
+  echo "ERROR: uv not found on PATH (are you inside a uv-* dev shell?)" >&2
+  exit 1
 fi
 
-if [[ -z "${UV_TORCH_BACKEND:-}" ]]; then
-    echo "WARNING: UV_TORCH_BACKEND unset — wheel selection will fall back to UV's default."
+if [[ -z ${UV_TORCH_BACKEND:-} ]]; then
+  echo "WARNING: UV_TORCH_BACKEND unset — wheel selection will fall back to UV's default."
 fi
 
 cd "$fixture"

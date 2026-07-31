@@ -94,7 +94,6 @@
 
       perSystem =
         {
-          self',
           config,
           system,
           pkgs,
@@ -120,11 +119,16 @@
           devShells = {
             default = pkgs.mkShell {
               name = "tue-p8n";
-              packages = with pkgs; [
-                cacert
-              ];
+              packages =
+                with pkgs;
+                [
+                  cacert
+                  config.pre-commit.settings.package
+                ]
+                ++ config.pre-commit.settings.enabledPackages;
               env = { };
-              shellHook = "";
+              shellHook = config.pre-commit.installationScript;
+
             };
           }
           // (import ./shells {
@@ -145,12 +149,13 @@
           # this repository.
           treefmt = {
             programs = {
-              ruff = {
-                enable = true;
-                check = true;
-                format = true;
-              };
+              clang-format.enable = true;
+              clang-tidy.enable = true;
+              deadnix.enable = true;
+              ruff.check = true;
+              ruff.format = true;
               shellcheck.enable = true;
+              shfmt.enable = true;
             };
             settings = {
               formatter = {
@@ -161,6 +166,27 @@
                 ruff-check.priority = 1;
                 ruff-check.options = [ "--fix-only" ];
                 ruff-format.priority = 2;
+              };
+            };
+          };
+
+          # Pre-commit
+          pre-commit.settings = {
+            package = pkgs.prek;
+            hooks = {
+              treefmt = {
+                enable = true;
+                package = config.treefmt.build.wrapper;
+              };
+              check-toml.enable = true;
+              check-yaml.enable = true;
+              check-json.enable = true;
+              check-merge-conflicts.enable = true;
+              check-added-large-files.enable = true;
+              end-of-file-fixer.enable = true;
+              trim-trailing-whitespace = {
+                enable = true;
+                args = [ "--markdown-linebreak-ext=md" ];
               };
             };
           };

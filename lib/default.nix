@@ -40,13 +40,12 @@ in
   getContainer = import ./get-container.nix;
 
   # Module constructors taking { pkgs, accelerator? } directly
-  uv = { pkgs, accelerator ? "cpu", ... }@args: (resolve args).uv;
-  mamba = { pkgs, accelerator ? "cpu", ... }@args: (resolve args).mamba;
-  micromamba = { pkgs, accelerator ? "cpu", ... }@args: (resolve args).mamba;
-  latex = { pkgs, accelerator ? "cpu", ... }@args: (resolve args).latex;
-  typst = { pkgs, accelerator ? "cpu", ... }@args: (resolve args).typst;
+  uv = { ... }@args: (resolve args).uv;
+  mamba = { ... }@args: (resolve args).mamba;
+  micromamba = { ... }@args: (resolve args).mamba;
+  latex = { ... }@args: (resolve args).latex;
+  typst = { ... }@args: (resolve args).typst;
   cuda =
     { pkgs, accelerator ? "cuda", ... }@args:
     (resolve ({ inherit pkgs accelerator; } // (builtins.removeAttrs args [ "pkgs" "accelerator" ]))).uv;
 }
-

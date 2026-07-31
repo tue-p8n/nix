@@ -9,14 +9,14 @@ set -euo pipefail
 
 here=$(dirname "$(readlink -f "$0")")
 
-if [[ -z "${CONDA_PREFIX:-}" ]] || ! command -v python >/dev/null; then
-    echo "ERROR: no active conda env (are you inside a mm-* dev shell?)" >&2
-    exit 1
+if [[ -z ${CONDA_PREFIX:-} ]] || ! command -v python >/dev/null; then
+  echo "ERROR: no active conda env (are you inside a mm-* dev shell?)" >&2
+  exit 1
 fi
 
 if ! python -c "import triton" 2>/dev/null; then
-    echo " >>> triton not in env; installing via pip..."
-    python -m pip install --quiet triton
+  echo " >>> triton not in env; installing via pip..."
+  python -m pip install --quiet triton
 fi
 
 python "$here/pytorch_triton.py"
