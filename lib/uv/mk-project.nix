@@ -26,8 +26,8 @@ rec {
       python ? pkgs.python313,
       extras ? [ ],
       overrides ? (_final: prev: prev),
-      packages ? (ps: [ ]),
-      extraPackages ? (ps: [ ]),
+      packages ? (_ps: [ ]),
+      extraPackages ? (_ps: [ ]),
       env ? { },
       shellHook ? "",
       passthru ? { },
@@ -84,7 +84,10 @@ rec {
         dependencies = pyprojectDeps;
       };
 
-      pythonSet = (pkgs'.callPackage pyprojectNix.build.packages { inherit python; }).overrideScope (
+      pythonSet = (pkgs'.callPackage pyprojectNix.build.packages {
+        inherit python;
+        stdenv = accelConfig'.stdenv;
+      }).overrideScope (
         lib.composeManyExtensions [
           pyprojectBuildSystems.overlays.default
           uvOverlay
@@ -145,4 +148,3 @@ rec {
       );
     };
 }
-
