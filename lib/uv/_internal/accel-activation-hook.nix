@@ -18,4 +18,3 @@
   ${if nixglhost != null then shell.hostGpuHook nixglhost else ""}
   ${accelConfig.shellHook}
 ''
-

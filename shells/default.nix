@@ -12,13 +12,13 @@ let
 
 in
 {
-  mm-shell-py313cu129 = micromamba.mkShell {
-    name = "mm-py313cu129";
+  mamba-py313cu129 = micromamba.mkShell {
+    name = "mamba-py313cu129";
     accelerator = "cuda12_9";
   };
-  cuda-shell = cuda.mkShell { };
-  latex-shell = latex.mkShell { };
-  typst-shell = typst.mkShell { };
+  cuda = cuda.mkShell { };
+  latex = latex.mkShell { };
+  typst = typst.mkShell { };
 }
 
 # Python shells using UV.
@@ -38,6 +38,6 @@ in
 
 # Python environments using `micromamba` and FHS.
 // pkgs.lib.mapAttrs (name: accelerator: (micromamba.mkFHS { inherit name accelerator; }).env) {
-  mm-py313cu128 = "cuda12_8";
-  mm-py313cu129 = "cuda12_9";
+  mamba-fhs-py313cu128 = "cuda12_8";
+  mamba-fhs-py313cu129 = "cuda12_9";
 }

@@ -1,5 +1,5 @@
 # Utilities for working with Typst documents.
-{ inputs, lib }:
+{ ... }:
 { pkgs, ... }:
 let
   # Helper: extracts argument names directly from a function signature and strips them from args

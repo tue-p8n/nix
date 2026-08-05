@@ -2,7 +2,7 @@
 # End-to-end smoke test for the micromamba dev shells: verify the active env
 # can import PyTorch and run a Triton kernel. Must be invoked from inside an
 # active micromamba shell, e.g.
-#   nix develop .#mm-shell-py313cu129 --command bash tests/smoke/test-mm-pytorch.sh
+#   nix develop .#mamba-py313cu129 --command bash tests/smoke/test-mamba-pytorch.sh
 # `pytorch-gpu` is in the YAML; `triton` is pip-installed on first run if
 # missing. Requires network on first run; needs a CUDA GPU for the kernel.
 set -euo pipefail
@@ -10,7 +10,7 @@ set -euo pipefail
 here=$(dirname "$(readlink -f "$0")")
 
 if [[ -z ${CONDA_PREFIX:-} ]] || ! command -v python >/dev/null; then
-  echo "ERROR: no active conda env (are you inside a mm-* dev shell?)" >&2
+  echo "ERROR: no active conda env (are you inside a mamba-* dev shell?)" >&2
   exit 1
 fi
 

@@ -1,8 +1,7 @@
 {
-  inputs,
   lib,
-  shell,
   uvShell,
+  ...
 }:
 let
   stripCustomArgs =
@@ -18,8 +17,8 @@ rec {
   mkFHS =
     {
       name ? "uv-fhs-shell",
-      packages ? (ps: [ ]),
-      extraPackages ? (ps: [ ]),
+      packages ? (_ps: [ ]),
+      extraPackages ? (_ps: [ ]),
       profile ? "",
       passthru ? { },
       accelerator ? null,
@@ -84,4 +83,3 @@ rec {
       };
     };
 }
-

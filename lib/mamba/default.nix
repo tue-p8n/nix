@@ -10,4 +10,3 @@ accelConfig: {
   inherit ((shellModule accelConfig)) mkShell;
   inherit ((fhsModule accelConfig)) mkFHS;
 }
-

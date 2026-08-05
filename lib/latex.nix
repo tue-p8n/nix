@@ -1,5 +1,5 @@
 # Utilities for writing documents with LaTeX.
-{ inputs, lib }:
+{ ... }:
 { pkgs, ... }:
 let
   defaultTexpkgs = ps: { inherit (ps) scheme-full; };

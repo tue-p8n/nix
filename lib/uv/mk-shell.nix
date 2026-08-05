@@ -1,8 +1,8 @@
 {
-  inputs,
   lib,
   shell,
   uvShell,
+  ...
 }:
 let
   stripCustomArgs =
@@ -18,8 +18,8 @@ rec {
   mkShell =
     {
       name ? null,
-      packages ? (ps: [ ]),
-      extraPackages ? (ps: [ ]),
+      packages ? (_ps: [ ]),
+      extraPackages ? (_ps: [ ]),
       env ? { },
       shellHook ? "",
       passthru ? { },
@@ -96,4 +96,3 @@ rec {
       }
     );
 }
-

@@ -1,4 +1,4 @@
-{ inputs, lib }:
+{ lib, ... }:
 let
   stripCustomArgs =
     fn: args:
@@ -20,10 +20,9 @@ rec {
           git
         ]
       ),
-      extraPackages ? (ps: [ ]),
+      extraPackages ? (_ps: [ ]),
       name ? "mamba-fhs-shell",
       file ? null,
-      env ? { },
       profile ? "",
       passthru ? { },
       accelerator ? null,
@@ -94,4 +93,3 @@ rec {
       };
     };
 }
-

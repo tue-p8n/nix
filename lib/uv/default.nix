@@ -19,4 +19,3 @@ accelConfig: {
   inherit ((projectModule accelConfig)) mkProject;
   mkUv2nix = (projectModule accelConfig).mkProject;
 }
-

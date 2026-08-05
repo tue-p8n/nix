@@ -192,7 +192,7 @@ building before you ever entered the shell.
 
 Returns `{ mkShell, mkFHS }` for Conda-compatible environments via
 Micromamba. Both variants create the env from `${file}` on first entry,
-patch it via `mm-patch.sh`, and `micromamba activate` it.
+patch it via `mamba-patch.sh`, and `micromamba activate` it.
 
 | Parameter     | Type     | Default                              |
 | ------------- | -------- | ------------------------------------ |
@@ -209,7 +209,7 @@ UV/Python.
 
 | Parameter     | Type     | Default                             |
 | ------------- | -------- | ----------------------------------- |
-| `name`        | `string` | `"cuda-shell"`                      |
+| `name`        | `string` | `"cuda"`                            |
 | `accelerator` | selector | `"cuda"` (pass `"cuda12_6"` to pin) |
 
 ---
@@ -263,7 +263,7 @@ that lets you declare dev shells declaratively:
           uv.fhs.dev-fhs  = { accelerator = "cuda12_9"; };
           uv.uv2nix.native = { workspaceRoot = ./.; accelerator = "cuda12_9"; };
           cuda.shells.bare = {};
-          micromamba.shells.mm = { name = "mm"; file = ./environment.yaml; accelerator = "cuda12_9"; };
+          micromamba.shells.mamba = { name = "mamba"; file = ./environment.yaml; accelerator = "cuda12_9"; };
           latex.shells.tex = {};
           typst.shells.tp = {};
         };

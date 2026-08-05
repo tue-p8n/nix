@@ -32,17 +32,17 @@ nix develop .#uv-cuda13_0
 
 ```bash
 # Enter a Micromamba FHS environment
-nix develop .#mm-py313cu129
+nix develop .#mamba-fhs-py313cu129
 ```
 
 ### Document Creation
 
 ```bash
 # Enter a LaTeX environment
-nix develop .#latex-shell
+nix develop .#latex
 
 # Enter a Typst environment
-nix develop .#typst-shell
+nix develop .#typst
 ```
 
 ## Creating a New Project from a Template

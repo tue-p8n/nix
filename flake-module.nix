@@ -187,7 +187,6 @@ let
       omitted = [
         "packages"
         "extraPackages"
-        "env"
         "profile"
         "passthru"
       ];
@@ -262,7 +261,7 @@ let
           "8.9"
         ];
         description = ''
-          Optionally specify target CUDA compute capabilities (e.g., `["8.6" "8.9"]`) 
+          Optionally specify target CUDA compute capabilities (e.g., `["8.6" "8.9"]`)
           to restrict builds to specific GPU architectures and speed up compilation.
           If `null`, nixpkgs builds for all standard supported capabilities.
         '';
@@ -380,4 +379,3 @@ in
     }
   );
 }
-

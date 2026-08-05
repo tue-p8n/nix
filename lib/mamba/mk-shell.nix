@@ -1,4 +1,4 @@
-{ inputs, lib }:
+{ lib, ... }:
 let
   stripCustomArgs =
     fn: args:
@@ -20,7 +20,7 @@ rec {
           git
         ]
       ),
-      extraPackages ? (ps: [ ]),
+      extraPackages ? (_ps: [ ]),
       name ? "mamba-shell",
       file ? null,
       env ? { },
@@ -87,4 +87,3 @@ rec {
       }
     );
 }
-
