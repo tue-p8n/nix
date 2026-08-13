@@ -126,11 +126,41 @@ rec {
           shellHook = ''
             ${shell.nixLdHook pkgs' libPath}
 
+            # Listing `venv` in `packages` makes nixpkgs' Python setup hook
+            # export PYTHONPATH pointing at its site-packages. PYTHONPATH
+            # outranks a venv's own site-packages, so it silently shadows any
+            # *other* environment the user works in: activating a uv-managed
+            # .venv, or even invoking that venv's interpreter by absolute
+            # path, still imports this venv's packages. Symptom is a wrong-
+            # library import with no error, which is worse than a failure.
+            # It is also redundant here: `venv` is already the interpreter, so
+            # its packages are on sys.path natively. Both uv2nix devShell
+            # idioms unset it for exactly this reason.
+            unset PYTHONPATH
+
             export UV_PYTHON_DOWNLOADS=never
             export UV_PYTHON="${venv}/bin/python"
             export UV_NO_SYNC=1
             export VIRTUAL_ENV="${venv}"
             export LD_LIBRARY_PATH="${libPath}:$LD_LIBRARY_PATH"
+
+            # The nvidia-* wheels depend on each other's shared objects, and
+            # `baseOverrides` sets autoPatchelfIgnoreMissingDeps on them so the
+            # build can finish without resolving those cross-wheel links. That
+            # leaves the sibling lib directories out of every RPATH, and unlike
+            # a plain pip install torch does not recover: its
+            # `_preload_cuda_deps` fallback only runs when loading
+            # libtorch_global_deps.so *fails*, and auto-patchelf fixed that one
+            # up, so the fallback never fires. The first bare-name dlopen of a
+            # sibling (libcudnn_graph.so.9, reached via libtorch_cuda) then
+            # aborts the process with SIGABRT in cudnnGetVersion, which is not
+            # a catchable exception. Putting the sibling dirs on the loader
+            # path is what the preload would otherwise have done.
+            for _nvlib in "${venv}"/lib/python*/site-packages/nvidia/*/lib; do
+              [ -d "$_nvlib" ] && LD_LIBRARY_PATH="$_nvlib:$LD_LIBRARY_PATH"
+            done
+            unset _nvlib
+            export LD_LIBRARY_PATH
 
             ${uvShell.accelActivationHook { accelConfig = accelConfig'; inherit nixglhost; }}
 

@@ -15,6 +15,6 @@
   ${shell.exportEnv accelConfig.env}
   ${repoRootHook}
 
-  ${if nixglhost != null then shell.hostGpuHook nixglhost else ""}
+  ${shell.hostGpuHook nixglhost}
   ${accelConfig.shellHook}
 ''
