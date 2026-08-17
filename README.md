@@ -159,7 +159,7 @@ A failure points at the change under review.
 one per matrix job.
 It runs when the lockfile changes, weekly, and on demand.
 A failure points at the pinned `nixpkgs`,
-not at the change under review.
+or at a change to the shell definitions themselves.
 
 ## Binary Cache
 

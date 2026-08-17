@@ -60,7 +60,7 @@ jobs:
       # nixpkgs rather than of the change under review.
       - name: Build the accelerator-free checks
         run: |
-          nix build -L \
+          nix build -L --keep-going \
             .#checks.x86_64-linux.unit \
             .#checks.x86_64-linux.flake-module \
             .#checks.x86_64-linux.uv2nix \
