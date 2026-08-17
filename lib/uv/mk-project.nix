@@ -164,6 +164,14 @@ rec {
 
             ${uvShell.accelActivationHook { accelConfig = accelConfig'; inherit nixglhost; }}
 
+            # Set after the activation hook, which is what defines REPO_ROOT.
+            # Without this torch caches JIT-built extensions in a shared
+            # per-user directory keyed only loosely on the environment, so two
+            # projects on different torch or CUDA versions collide; torch warns
+            # about precisely that on every build. Keyed by project and
+            # accelerator so the variants cannot share a cache entry.
+            export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${name}-${tag}}"
+
             echo " >>> UV (uv2nix) shell activated: $(uv --version) [${tag}]"
             ${shellHook}
           '';
