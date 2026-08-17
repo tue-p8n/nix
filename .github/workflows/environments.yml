@@ -5,14 +5,25 @@ name: Environments
 # lockfile moves, not when a module or a template changes, so this runs on
 # lockfile changes, weekly, and on demand rather than on every push.
 on:
-  schedule:
-    # Mondays at 05:00 UTC, after the lockfile update pull request opens.
-    - cron: '0 5 * * 1'
+  # The lockfile updater opens its pull request with `GITHUB_TOKEN`, and
+  # GitHub starts no workflow runs from events that token creates, so the
+  # `pull_request` trigger never sees it. Running on push to main is what
+  # actually covers a lockfile bump.
+  push:
+    branches: [ main ]
+    paths:
+      - 'flake.nix'
+      - 'flake.lock'
+      - 'shells/**'
   pull_request:
     paths:
       - 'flake.nix'
       - 'flake.lock'
       - 'shells/**'
+  schedule:
+    # Mondays at 05:00 UTC. Scheduled runs use the default branch, so this
+    # reports on main rather than on any open pull request.
+    - cron: '0 5 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -45,6 +56,21 @@ jobs:
             ["unit","flake-module","uv2nix","treefmt","pre-commit",
              "test-uv","test-template","shell-default","shell-uv-cpu"]
         run: |
+          # `pipefail` matters here: without it a failed `nix eval` leaves jq
+          # reading empty stdin, jq exits 0, and the real error surfaces as a
+          # `fromJSON` failure in a different job with no trace of the cause.
+          set -euo pipefail
+
+          # Enforce the coupling the comment above describes. A name listed
+          # there that no longer appears in the CI build step would be
+          # excluded from this matrix and built by neither workflow.
+          for name in $(jq -r '.[]' <<<"$COVERED_BY_CI"); do
+            grep -q "checks\.x86_64-linux\.$name\b" .github/workflows/ci.yml || {
+              echo "COVERED_BY_CI lists '$name', which ci.yml no longer builds" >&2
+              exit 1
+            }
+          done
+
           nix eval --json .#checks.x86_64-linux --apply builtins.attrNames \
             | jq -c --argjson skip "$COVERED_BY_CI" '
                 [ .[]
@@ -52,7 +78,9 @@ jobs:
                 | "checks.x86_64-linux." + .
                 ]
                 + ["packages.x86_64-linux.oci-pytorch2_8_0-cuda12_9-cudnn9-devel"]
-              ' | tee attrs.json
+              ' > attrs.json
+          test -s attrs.json
+          cat attrs.json
           echo "attrs=$(cat attrs.json)" >> "$GITHUB_OUTPUT"
 
   build:
