@@ -34,12 +34,25 @@ jobs:
         # Allow the step to be skipped if the secret is not configured yet.
         continue-on-error: ${{ secrets.CACHIX_AUTH_TOKEN == '' }}
 
-      # Instantiates every flake output without realizing any of them. This is
-      # what catches the breakage a change to this repository can actually
-      # cause: broken module wiring, a renamed attribute, an evaluation that
-      # throws.
+      # Instantiates every flake output. This is what catches the breakage a
+      # change to this repository can actually cause: broken module wiring, a
+      # renamed attribute, an evaluation that throws.
+      #
+      # `nix flake check --no-build` is the obvious command and does not work
+      # here. The Nix-LD hook reads the compiler wrapper's dynamic-linker file
+      # during evaluation, and `--no-build` refuses to realize the store path
+      # that read needs, so evaluation fails on a cold store. Forcing
+      # `drvPath` permits that one small realization and builds no outputs.
       - name: Evaluate all flake outputs
-        run: nix flake check --no-build
+        run: |
+          for output in checks devShells packages; do
+            nix eval --raw ".#$output.x86_64-linux" \
+              --apply 'set: builtins.concatStringsSep "\n" (map (d: d.drvPath) (builtins.attrValues set))' \
+              > /dev/null
+          done
+          nix eval --json .#templates \
+            --apply 'builtins.mapAttrs (_: t: { inherit (t) description; path = toString t.path; })' \
+            > /dev/null
 
       # Everything below builds without a CUDA, ROCm, or TeX Live toolchain.
       # The shells that need one are realized by the environments workflow
