@@ -67,6 +67,12 @@ rec {
             ${uvShell.accelActivationHook { accelConfig = accelConfig'; inherit nixglhost; }}
             ${uvShell.uvBaseHook}
 
+            # Set after the activation hook, which is what defines REPO_ROOT.
+            # Keyed by accelerator because every variant of a repo shares one
+            # `.venv`, so keying on that would let a CUDA build and a ROCm
+            # build read each other's JIT-compiled extensions.
+            export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${accelConfig'.tag}}"
+
             echo " >>> UV FHS environment activated [${accelConfig'.tag}]"
             ${profile}
             set +e
