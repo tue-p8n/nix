@@ -146,6 +146,37 @@ _Note: The `--nv` flag is essential to enable NVIDIA GPU acceleration inside the
 - `tests/`: Unit and smoke tests run by `nix flake check`.
 - `docs/`: API reference and guides.
 
+## Continuous Integration
+
+Two workflows split the checks by what a failure means.
+
+`CI` evaluates every flake output,
+then builds the checks that run on CPU alone.
+It runs on every push and pull request.
+A failure points at the change under review.
+
+`Environments` builds the CUDA, ROCm, and TeX Live shells,
+one per matrix job.
+It runs when the lockfile changes, weekly, and on demand.
+A failure points at the pinned `nixpkgs`,
+not at the change under review.
+
+## Binary Cache
+
+Public caches carry only the default CUDA version,
+so this project publishes the rest to `tue-p8n.cachix.org`.
+Without it, the other CUDA versions compile NCCL from source.
+
+Add it to `nix.conf`,
+or to a consuming flake's `nixConfig`:
+
+```
+extra-substituters = https://tue-p8n.cachix.org
+extra-trusted-public-keys = tue-p8n.cachix.org-1:OshT9P6F/UKw2M+vS11uEqih37k/hYF8K3RtIKrZfJs=
+```
+
+`Environments` writes to it on every run.
+
 
 ## License
 

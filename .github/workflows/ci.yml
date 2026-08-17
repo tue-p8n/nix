@@ -16,8 +16,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v31
         with:
+          # Substituters are declared here rather than read from the flake's
+          # `nixConfig`, which Nix refuses to honor for an untrusted user and
+          # silently ignores. Without them every CUDA package is rebuilt from
+          # source even where a cache already has it.
           extra_nix_config: |
+            experimental-features = nix-command flakes
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+            extra-substituters = https://cache.nixos-cuda.org https://nix-community.cachix.org
+            extra-trusted-public-keys = cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
       - uses: cachix/cachix-action@v15
         with:
           name: tue-p8n
@@ -26,5 +33,27 @@ jobs:
           pushFilter: '-source$'
         # Allow the step to be skipped if the secret is not configured yet.
         continue-on-error: ${{ secrets.CACHIX_AUTH_TOKEN == '' }}
-      - name: Nix Flake Check
-        run: nix flake check --extra-experimental-features 'nix-command flakes' --keep-going
+
+      # Instantiates every flake output without realizing any of them. This is
+      # what catches the breakage a change to this repository can actually
+      # cause: broken module wiring, a renamed attribute, an evaluation that
+      # throws.
+      - name: Evaluate all flake outputs
+        run: nix flake check --no-build
+
+      # Everything below builds without a CUDA, ROCm, or TeX Live toolchain.
+      # The shells that need one are realized by the environments workflow
+      # instead, because whether they build is a property of the pinned
+      # nixpkgs rather than of the change under review.
+      - name: Build the accelerator-free checks
+        run: |
+          nix build -L \
+            .#checks.x86_64-linux.unit \
+            .#checks.x86_64-linux.flake-module \
+            .#checks.x86_64-linux.uv2nix \
+            .#checks.x86_64-linux.treefmt \
+            .#checks.x86_64-linux.pre-commit \
+            .#checks.x86_64-linux.test-uv \
+            .#checks.x86_64-linux.test-template \
+            .#checks.x86_64-linux.shell-default \
+            .#checks.x86_64-linux.shell-uv-cpu
