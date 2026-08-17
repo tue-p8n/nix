@@ -14,5 +14,8 @@ __pycache__/
 dist/
 build/
 
+# Torch JIT extension cache (created on first shell entry)
+.torch-extensions/
+
 # NOTE: uv.lock is committed on purpose -- it drives the Nix build. See
 # README.md.
