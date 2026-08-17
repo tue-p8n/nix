@@ -73,8 +73,6 @@ rec {
           export SSL_CERT_FILE="${pkgs'.cacert}/etc/ssl/certs/ca-bundle.crt"
           export NIX_SSL_CERT_FILE="${pkgs'.cacert}/etc/ssl/certs/ca-bundle.crt"
 
-          export TORCH_EXTENSIONS_DIR="$VIRTUAL_ENV/torch_extensions"
-
           export PATH="${pkgs'.ccache}/bin:$PATH"
           export CMAKE_C_COMPILER_LAUNCHER=ccache
           export CMAKE_CXX_COMPILER_LAUNCHER=ccache
@@ -85,6 +83,12 @@ rec {
 
           ${uvShell.accelActivationHook { accelConfig = accelConfig'; inherit nixglhost; }}
           ${uvShell.uvBaseHook}
+
+          # Set after the activation hook, which is what defines REPO_ROOT.
+          # Keyed by accelerator because every variant of a repo shares one
+          # `.venv`, so keying on that would let a CUDA build and a ROCm build
+          # read each other's JIT-compiled extensions.
+          export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${accelConfig'.tag}}"
 
           echo "🐍 UV shell activated: $(uv --version) [${accelConfig'.tag}]"
           ${shellHook}
