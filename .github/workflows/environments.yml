@@ -15,11 +15,13 @@ on:
       - 'flake.nix'
       - 'flake.lock'
       - 'shells/**'
+      - 'lib/**'
   pull_request:
     paths:
       - 'flake.nix'
       - 'flake.lock'
       - 'shells/**'
+      - 'lib/**'
   schedule:
     # Mondays at 05:00 UTC. Scheduled runs use the default branch, so this
     # reports on main rather than on any open pull request.
@@ -28,6 +30,15 @@ on:
 
 permissions:
   contents: read
+
+# Set here rather than through the installer's `extra_nix_config`, whose
+# values never reached the resolved substituter list on the runner. The
+# project cache is listed too so the coverage report below sees what the
+# build jobs will actually be able to fetch.
+env:
+  NIX_CONFIG: |
+    extra-substituters = https://cache.nixos-cuda.org https://nix-community.cachix.org https://tue-p8n.cachix.org
+    extra-trusted-public-keys = cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= tue-p8n.cachix.org-1:OshT9P6F/UKw2M+vS11uEqih37k/hYF8K3RtIKrZfJs=
 
 jobs:
   # Derives the matrix from the flake so a newly added shell is covered
@@ -83,18 +94,37 @@ jobs:
           cat attrs.json
           echo "attrs=$(cat attrs.json)" >> "$GITHUB_OUTPUT"
 
+      # How much of the matrix the caches can serve, reported before the heavy
+      # jobs start. A lockfile bump that lands on packages no cache has built
+      # shows up here as a large build count, rather than as an hour-long cell
+      # discovered later.
+      - name: Report cache coverage
+        run: |
+          set -uo pipefail
+          mapfile -t attrs < <(jq -r '.[] | ".#" + .' attrs.json)
+          nix build --dry-run "${attrs[@]}" > dry.txt 2>&1 || true
+          read -r builds fetches < <(awk '
+            /will be built:/  { sec="build"; next }
+            /will be fetched/ { sec="fetch"; next }
+            /^  \/nix\/store\// { if (sec) c[sec]++; next }
+            { sec="" }
+            END { printf "%d %d\n", c["build"]+0, c["fetch"]+0 }
+          ' dry.txt)
+          {
+            echo "| matrix closure | paths |"
+            echo "| --- | --- |"
+            echo "| substitutable from a cache | $fetches |"
+            echo "| must be built | $builds |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "substitutable=$fetches to-build=$builds"
+          if [ "$builds" -gt 0 ]; then
+            echo "::notice::$builds derivations are in no configured cache"
+            sed -n '/will be built:/,/will be fetched/p' dry.txt | head -25
+          fi
+
   build:
     needs: discover
     runs-on: ubuntu-24.04
-    # Passed as NIX_CONFIG rather than through the installer's
-    # `extra_nix_config`, whose values never reached the resolved substituter
-    # list on the runner. Confirmed by printing `nix config show
-    # substituters`: only cache.nixos.org and the project cache appeared, so
-    # every CUDA path was fetched from NVIDIA and NCCL rebuilt from source.
-    env:
-      NIX_CONFIG: |
-        extra-substituters = https://cache.nixos-cuda.org https://nix-community.cachix.org
-        extra-trusted-public-keys = cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
     timeout-minutes: 350
     strategy:
       # One CUDA version failing upstream should not hide the state of the
