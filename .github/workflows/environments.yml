@@ -86,6 +86,15 @@ jobs:
   build:
     needs: discover
     runs-on: ubuntu-24.04
+    # Passed as NIX_CONFIG rather than through the installer's
+    # `extra_nix_config`, whose values never reached the resolved substituter
+    # list on the runner. Confirmed by printing `nix config show
+    # substituters`: only cache.nixos.org and the project cache appeared, so
+    # every CUDA path was fetched from NVIDIA and NCCL rebuilt from source.
+    env:
+      NIX_CONFIG: |
+        extra-substituters = https://cache.nixos-cuda.org https://nix-community.cachix.org
+        extra-trusted-public-keys = cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
     timeout-minutes: 350
     strategy:
       # One CUDA version failing upstream should not hide the state of the
@@ -113,8 +122,6 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
-            extra-substituters = https://cache.nixos-cuda.org https://nix-community.cachix.org
-            extra-trusted-public-keys = cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
       - uses: cachix/cachix-action@v15
         with:
           name: tue-p8n
