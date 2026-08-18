@@ -43,6 +43,17 @@ jobs:
       # during evaluation, and `--no-build` refuses to realize the store path
       # that read needs, so evaluation fails on a cold store. Forcing
       # `drvPath` permits that one small realization and builds no outputs.
+
+      # Temporary: the environments run substituted nothing from the CUDA
+      # cache even though the paths it needed are in it. Print what the
+      # runner actually resolves. Remove once the cause is known.
+      - name: Show resolved substituters
+        run: |
+          nix config show substituters trusted-public-keys
+          nix path-info --store https://cache.nixos-cuda.org \
+            /nix/store/w0dx8iw00mxlb25r8i6b70yyrvcjfrh0-cuda12.9-nccl-2.28.7-1 \
+            && echo "CUDA CACHE REACHABLE" || echo "CUDA CACHE NOT REACHABLE"
+
       - name: Evaluate all flake outputs
         run: |
           for output in checks devShells packages; do
