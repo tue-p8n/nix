@@ -100,7 +100,8 @@ rec {
         _final: prev:
         lib.mapAttrs (
           pkgName: pkg:
-          if lib.elem pkgName resolvedCrossWheelLinkingPackages then
+          # check if starts with "nvidia-"
+          if (lib.hasPrefix "nvidia-" pkgName) || (lib.elem pkgName resolvedCrossWheelLinkingPackages) then
             pkg.overrideAttrs (_: {
               autoPatchelfIgnoreMissingDeps = true;
             })
