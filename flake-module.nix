@@ -11,7 +11,6 @@
 let
   tueLib = inputs.tue-p8n.lib or inputs.self.lib;
 
-
   shellOpts = _: {
     options = {
       accelerator = lib.mkOption {
@@ -79,6 +78,23 @@ let
         type = lib.types.path;
         description = "Path to the uv workspace root (containing pyproject.toml + uv.lock).";
       };
+      env = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        default = { };
+        description = "Extra environment variables to set in the build environment.";
+      };
+      shellHook = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Extra shell hook.";
+      };
+      overrides = lib.mkOption {
+        # Using `anything` or `unspecified` prevents the module system from
+        # trying to deeply merge the returned derivations.
+        type = lib.types.nullOr (lib.types.functionTo lib.types.anything);
+        default = null;
+        description = "Python set overlay function, typically `final: prev: { ... }`.";
+      };
       accelerator = lib.mkOption {
         type = lib.types.str;
         default = "cpu";
@@ -88,6 +104,26 @@ let
         type = lib.types.nullOr lib.types.package;
         default = null;
         description = "Override the Nix-built Python interpreter (defaults to pkgs.python313).";
+      };
+      extras = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        description = "Extras passed to `uv sync` via `--extra <name>`.";
+      };
+      crossWheelLinkingPackages = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = { };
+        description = "Extra packages to link into the cross-wheel build environment.";
+      };
+      extraLibs = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        description = "Extra libraries to link into the build environment.";
+      };
+      missingBuildSystems = lib.mkOption {
+        type = lib.types.attrsOf (lib.types.listOf lib.types.str);
+        default = { };
+        description = "Extra build systems to add to the build environment.";
       };
     };
   };
@@ -150,12 +186,9 @@ let
       fn = (uvModule dummyAccel).mkProject;
       exposed = uv2nixExposed;
       omitted = [
-        "extras"
         "overrides"
         "packages"
         "extraPackages"
-        "env"
-        "shellHook"
         "passthru"
       ];
     };
@@ -192,7 +225,6 @@ let
       ];
     };
   };
-
 
   checkBuilderCoverage =
     name:
@@ -320,8 +352,12 @@ in
         assert _coverageChecked;
         let
           cfg = lib.recursiveUpdate config.p8n config.tue-p8n;
-          resOf = accel: tueLib.resolve { inherit pkgs; accelerator = accel; };
-
+          resOf =
+            accel:
+            tueLib.resolve {
+              inherit pkgs;
+              accelerator = accel;
+            };
 
           shellArgs = c: dropNull { inherit (c) accelerator name; };
           # buildFHSEnv requires a non-null `name`; fall back to the attribute key.
@@ -366,7 +402,9 @@ in
             (lib.mapAttrs (_: c: (resOf c.accelerator).uv.mkShell (shellArgs c)) cfg.uv.shells)
             (lib.mapAttrs (k: c: ((resOf c.accelerator).uv.mkFHS (fhsArgs k c)).env) cfg.uv.fhs)
             (lib.mapAttrs (_: c: ((resOf c.accelerator).uv.mkProject (uv2nixArgs c)).shell) cfg.uv.uv2nix)
-            (lib.mapAttrs (_: c: (resOf (if c.accelerator != "cpu" then c.accelerator else "cuda")).uv.mkShell (shellArgs c)) cfg.cuda.shells)
+            (lib.mapAttrs (
+              _: c: (resOf (if c.accelerator != "cpu" then c.accelerator else "cuda")).uv.mkShell (shellArgs c)
+            ) cfg.cuda.shells)
             (lib.mapAttrs (_: c: (resOf c.accelerator).mamba.mkShell (mmArgs c)) cfg.micromamba.shells)
             (lib.mapAttrs (_: c: ((resOf c.accelerator).mamba.mkFHS (mmArgs c)).env) cfg.micromamba.fhs)
             (lib.mapAttrs (_: c: (resOf "cpu").latex.mkShell { inherit (c) texpkgs; }) cfg.latex.shells)
