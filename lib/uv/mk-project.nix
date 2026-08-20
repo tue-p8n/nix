@@ -59,25 +59,49 @@ rec {
       # as a default.
       overrideMissingBuildSystems =
         let
-
-          defaultMissingBuildSystems = {
+          default = {
             antlr4-python3-runtime = [ "setuptools" ];
             deformops = [ "setuptools" ];
+            semantic-version = [
+              "setuptools"
+              "wheel"
+            ];
+            setuptools-scm = [
+              "setuptools"
+              "wheel"
+            ];
+            setuptools-rust = [
+              "setuptools"
+              "wheel"
+            ];
+            libcst = [
+              "setuptools"
+              "wheel"
+            ];
+            nvidia-pipecat = [
+              "setuptools"
+              "wheel"
+            ];
           };
-          resolvedMissingBuildSystems = defaultMissingBuildSystems // missingBuildSystems;
+          overrideResolved =
+            final: prev:
+            lib.mapAttrs (
+              pkgName: buildSystems:
+              prev.${pkgName}.overrideAttrs (old: {
+                nativeBuildInputs =
+                  (old.nativeBuildInputs or [ ])
+                  ++ (final.resolveBuildSystem (pkgs.lib.genAttrs buildSystems (_: [ ])));
+              })
+            ) (default // missingBuildSystems);
+
+          # Default set of special cases
+          overrideSpecial = _: prev: {
+            numba = prev.numba.overrideAttrs (old: {
+              buildInputs = (old.buildInputs or [ ]) ++ [ pkgs.tbb ];
+            });
+          };
         in
-        final: prev:
-        lib.mapAttrs (
-          pkgName: pkg:
-          if pkgs.lib.hasAttr pkgName resolvedMissingBuildSystems then
-            pkg.overrideAttrs (old: {
-              nativeBuildInputs =
-                (old.nativeBuildInputs or [ ])
-                ++ final.resolveBuildSystem (pkgs.lib.genAttrs resolvedMissingBuildSystems.${pkgName} (_: [ ]));
-            })
-          else
-            pkg
-        ) prev;
+        final: prev: (overrideResolved final prev) // (overrideSpecial final prev);
 
       # Packages that are known to have cross-wheel linking issues.
       # These packages are linked against each other.
