@@ -141,7 +141,7 @@ rec {
 
       venv = pythonSet.mkVirtualEnv "${name}-venv" pyprojectDeps;
 
-      libPath = pkgs'.lib.makeLibraryPath accelConfig'.systemLibs ++ extraLibs;
+      libPath = pkgs'.lib.makeLibraryPath (accelConfig'.systemLibs ++ extraLibs);
       passThroughAttrs = stripCustomArgs mkProject args;
     in
     {

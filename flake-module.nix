@@ -83,18 +83,18 @@ let
         default = { };
         description = "Extra environment variables to set in the build environment.";
       };
-      # shellHook = lib.mkOption {
-      #   type = lib.types.str;
-      #   default = "";
-      #   description = "Extra shell hook.";
-      # };
-      # overrides = lib.mkOption {
-      #   # Using `anything` or `unspecified` prevents the module system from
-      #   # trying to deeply merge the returned derivations.
-      #   type = lib.types.nullOr (lib.types.functionTo lib.types.anything);
-      #   default = null;
-      #   description = "Python set overlay function, typically `final: prev: { ... }`.";
-      # };
+      shellHook = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Extra shell hook.";
+      };
+      overrides = lib.mkOption {
+        # Using `anything` or `unspecified` prevents the module system from
+        # trying to deeply merge the returned derivations.
+        type = lib.types.nullOr (lib.types.functionTo lib.types.anything);
+        default = null;
+        description = "Python set overlay function, typically `final: prev: { ... }`.";
+      };
       accelerator = lib.mkOption {
         type = lib.types.str;
         default = "cpu";
@@ -189,8 +189,6 @@ let
         "overrides"
         "packages"
         "extraPackages"
-        "shellHook"
-        "overrides"
         "passthru"
       ];
     };
