@@ -32,6 +32,9 @@ rec {
       shellHook ? "",
       passthru ? { },
       accelerator ? null,
+      missingBuildSystems ? { },
+      crossWheelLinkingPackages ? [ ],
+      extraLibs ? [ ],
       ...
     }@args:
     let
@@ -49,22 +52,55 @@ rec {
       tag = accelConfig'.tag or "cpu";
 
       # Select torch extra backend (ROCm special cased)
-      torchExtra = if lib.hasPrefix "rocm" tag then "rocm" else accelConfig'.env.UV_TORCH_BACKEND or "cpu";
+      torchExtra =
+        if lib.hasPrefix "rocm" tag then "rocm" else accelConfig'.env.UV_TORCH_BACKEND or "cpu";
 
-      crossWheelLinkingPackages = [
-        "torch"
-        "torchvision"
-        "torchaudio"
-        "triton"
-        "xformers"
-        "bitsandbytes"
-      ];
+      # Missing build systems. Default configuration includes some popular packages
+      # as a default.
+      overrideMissingBuildSystems =
+        let
 
-      baseOverrides =
+          defaultMissingBuildSystems = {
+            antlr4-python3-runtime = [ "setuptools" ];
+            deformops = [ "setuptools" ];
+          };
+          resolvedMissingBuildSystems = defaultMissingBuildSystems // missingBuildSystems;
+        in
+        final: prev:
+        lib.mapAttrs (
+          pkgName: pkg:
+          if pkgs.lib.hasAttr pkgName resolvedMissingBuildSystems then
+            pkg.overrideAttrs (old: {
+              nativeBuildInputs =
+                (old.nativeBuildInputs or [ ])
+                ++ final.resolveBuildSystem (pkgs.lib.genAttrs resolvedMissingBuildSystems.${pkgName} (_: [ ]));
+            })
+          else
+            pkg
+        ) prev;
+
+      # Packages that are known to have cross-wheel linking issues.
+      # These packages are linked against each other.
+      # The list below includes some common packages.
+      overrideCrossWheelLinkingPackages =
+        let
+
+          defaultCrossWheelLinkingPackages = [
+            "torch"
+            "torchvision"
+            "torchaudio"
+            "triton"
+            "xformers"
+            "bitsandbytes"
+            "deformops"
+            "torchmatch"
+          ];
+          resolvedCrossWheelLinkingPackages = defaultCrossWheelLinkingPackages ++ crossWheelLinkingPackages;
+        in
         _final: prev:
         lib.mapAttrs (
-          pname: pkg:
-          if lib.hasPrefix "nvidia-" pname || lib.elem pname crossWheelLinkingPackages then
+          pkgName: pkg:
+          if lib.elem pkgName resolvedCrossWheelLinkingPackages then
             pkg.overrideAttrs (_: {
               autoPatchelfIgnoreMissingDeps = true;
             })
@@ -72,33 +108,40 @@ rec {
             pkg
         ) prev;
 
+      # UV workspace
       workspace = uv2nix.lib.workspace.loadWorkspace { inherit workspaceRoot; };
 
+      # PyProject dependencies
       pyprojectDeps = lib.zipAttrsWith (_: lib.concatLists) [
         workspace.deps.groups
         { ${name} = [ torchExtra ] ++ extras; }
       ];
 
+      # UV overlay
       uvOverlay = workspace.mkPyprojectOverlay {
         sourcePreference = "wheel";
         dependencies = pyprojectDeps;
       };
 
-      pythonSet = (pkgs'.callPackage pyprojectNix.build.packages {
-        inherit python;
-        stdenv = accelConfig'.stdenv;
-      }).overrideScope (
-        lib.composeManyExtensions [
-          pyprojectBuildSystems.overlays.default
-          uvOverlay
-          baseOverrides
-          overrides
-        ]
-      );
+      # Python set
+      pythonSet =
+        (pkgs'.callPackage pyprojectNix.build.packages {
+          inherit python;
+          inherit (accelConfig') stdenv;
+        }).overrideScope
+          (
+            lib.composeManyExtensions [
+              pyprojectBuildSystems.overlays.default
+              uvOverlay
+              overrideMissingBuildSystems
+              overrideCrossWheelLinkingPackages
+              overrides
+            ]
+          );
 
       venv = pythonSet.mkVirtualEnv "${name}-venv" pyprojectDeps;
 
-      libPath = pkgs'.lib.makeLibraryPath accelConfig'.systemLibs;
+      libPath = pkgs'.lib.makeLibraryPath accelConfig'.systemLibs ++ extraLibs;
       passThroughAttrs = stripCustomArgs mkProject args;
     in
     {
@@ -162,7 +205,10 @@ rec {
             unset _nvlib
             export LD_LIBRARY_PATH
 
-            ${uvShell.accelActivationHook { accelConfig = accelConfig'; inherit nixglhost; }}
+            ${uvShell.accelActivationHook {
+              accelConfig = accelConfig';
+              inherit nixglhost;
+            }}
 
             # Set after the activation hook, which is what defines REPO_ROOT.
             # Without this torch caches JIT-built extensions in a shared
