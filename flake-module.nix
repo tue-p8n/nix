@@ -189,8 +189,9 @@ let
         "overrides"
         "packages"
         "extraPackages"
-        "passthru"
         "shellHook"
+        "overrides"
+        "passthru"
       ];
     };
     "cuda.shells" = {
@@ -212,7 +213,6 @@ let
         "extraPackages"
         "env"
         "shellHook"
-        "overrides"
         "passthru"
       ];
     };
