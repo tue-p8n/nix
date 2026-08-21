@@ -70,12 +70,15 @@
       ];
 
       flake = {
-        lib = pkgs: import ./lib {
-          inherit inputs;
-          lib = inputs.nixpkgs.lib;
-          inherit pkgs;
-        };
+        lib =
+          pkgs:
+          import ./lib {
+            inherit inputs;
+            inherit pkgs;
+          };
+
         flakeModule = import ./flake-module.nix;
+
         templates = {
           uv = {
             path = ./templates/uv;
@@ -99,60 +102,43 @@
       perSystem =
         {
           config,
-          system,
           pkgs,
+          p8n,
           ...
         }:
         {
-          # CUDA support requires unfree packages and forward-compat.
-          _module.args.pkgs = import self.inputs.nixpkgs {
-            inherit system;
-            config = {
-              # Set `cudaCapabilities = ["8.6" …];` to restrict per-arch builds.
-              cudaForwardCompat = true;
-              cudaSupport = true;
-              allowUnfree = true;
-            };
-            # Without this, nixpkgs reads ~/.config/nixpkgs/overlays.nix /
-            # $NIXPKGS_OVERLAYS impurely, so two machines could silently get
-            # different `pkgs` from the identical flake.
-            overlays = [ ];
-          };
-
           # Development shells
-          devShells =
-            let
-              p8n = accel: (self.lib pkgs).withAccelerator accel;
-            in
-            {
-              default = pkgs.mkShell {
-                name = "tue-p8n";
-                packages =
-                  with pkgs;
-                  [
-                    cacert
-                    config.pre-commit.settings.package
-                  ]
-                  ++ config.pre-commit.settings.enabledPackages;
-                env = { };
-                shellHook = config.pre-commit.installationScript;
-              };
-
-              mamba-py313cu129 = (p8n "cuda12_9").mamba.mkShell {
-                name = "mamba-py313cu129";
-              };
-              cuda = (p8n "cuda").uv.mkShell { name = "cuda"; };
-              latex = (p8n "cpu").latex.mkShell { };
-              typst = (p8n "cpu").typst.mkShell { };
-
-              uv-cpu = (p8n "cpu").uv.mkShell { };
-              uv-cuda12_6 = (p8n "cuda12_6").uv.mkShell { };
-              uv-cuda13_0 = (p8n "cuda13_0").uv.mkShell { };
-              uv-rocm = (p8n "rocm").uv.mkShell { };
-
-              mamba-fhs-py313cu128 = ((p8n "cuda12_8").mamba.mkFHS { name = "mamba-fhs-py313cu128"; }).env;
-              mamba-fhs-py313cu129 = ((p8n "cuda12_9").mamba.mkFHS { name = "mamba-fhs-py313cu129"; }).env;
+          devShells = {
+            default = pkgs.mkShell {
+              name = "tue-p8n";
+              packages =
+                with pkgs;
+                [
+                  cacert
+                  config.pre-commit.settings.package
+                ]
+                ++ config.pre-commit.settings.enabledPackages;
+              env = { };
+              shellHook = config.pre-commit.installationScript;
             };
+
+            mamba-py313cu129 = (p8n.withAccelerator "cuda12_9").mamba.mkShell {
+              name = "mamba-py313cu129";
+            };
+            cuda = (p8n.withAccelerator "cuda").uv.mkShell { name = "cuda"; };
+            latex = (p8n.withAccelerator "cpu").latex.mkShell { };
+            typst = (p8n.withAccelerator "cpu").typst.mkShell { };
+
+            uv-cpu = (p8n.withAccelerator "cpu").uv.mkShell { };
+            uv-cuda12_6 = (p8n.withAccelerator "cuda12_6").uv.mkShell { };
+            uv-cuda13_0 = (p8n.withAccelerator "cuda13_0").uv.mkShell { };
+            uv-rocm = (p8n.withAccelerator "rocm").uv.mkShell { };
+
+            mamba-fhs-py313cu128 =
+              ((p8n.withAccelerator "cuda12_8").mamba.mkFHS { name = "mamba-fhs-py313cu128"; }).env;
+            mamba-fhs-py313cu129 =
+              ((p8n.withAccelerator "cuda12_9").mamba.mkFHS { name = "mamba-fhs-py313cu129"; }).env;
+          };
 
           # Packages
           packages = {

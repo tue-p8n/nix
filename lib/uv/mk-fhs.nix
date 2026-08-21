@@ -1,8 +1,5 @@
 {
-  lib,
   self,
-  pkgs,
-  config,
   ...
 }:
 let
@@ -13,7 +10,6 @@ let
       customKeys = builtins.attrNames (builtins.functionArgs fn);
     in
     builtins.removeAttrs args customKeys;
-  accelerators = import ../accelerators;
 in
 rec {
   mkFHS =
@@ -23,23 +19,19 @@ rec {
       extraPackages ? (_ps: [ ]),
       profile ? "",
       passthru ? { },
-      accelerator ? null,
       ...
     }@args:
     let
-      config' =
-        if accelerator != null && accelerator != config.name then
-          (accelerators { inherit pkgs lib; }) accelerator
-        else
-          config;
-      pkgs' = config'.pkgs;
-      resolvePkgs = p: if builtins.isFunction p then p pkgs' else p;
+      inherit (self) config;
+      inherit (config) pkgs;
 
-      nixglhost = pkgs'.nixglhost or null;
+      resolvePkgs = p: if builtins.isFunction p then p pkgs else p;
+
+      nixglhost = pkgs.nixglhost or null;
       nixglPkg = if nixglhost != null then [ nixglhost ] else [ ];
       passThroughAttrs = stripCustomArgs mkFHS args;
 
-      fhsEnv = pkgs'.buildFHSEnv (
+      fhs = pkgs.buildFHSEnv (
         passThroughAttrs
         // {
           inherit name;
@@ -61,7 +53,7 @@ rec {
             ])
             ++ (resolvePkgs packages)
             ++ (resolvePkgs extraPackages)
-            ++ config'.libraries.packages;
+            ++ config.libraries.packages;
 
           profile = ''
             set -e
@@ -75,9 +67,9 @@ rec {
             # Keyed by accelerator because every variant of a repo shares one
             # `.venv`, so keying on that would let a CUDA build and a ROCm
             # build read each other's JIT-compiled extensions.
-            export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${config'.name}}"
+            export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${config.name}}"
 
-            echo " >>> UV FHS environment activated [${config'.name}]"
+            echo " >>> UV FHS environment activated [${config.name}]"
             ${profile}
             set +e
           '';
@@ -85,11 +77,9 @@ rec {
       );
     in
     {
-      env = fhsEnv;
-      config = config';
+      inherit fhs;
       passthru = passthru // {
-        config = config';
-        fhsEnv = fhsEnv;
+        inherit fhs;
       };
     };
 }

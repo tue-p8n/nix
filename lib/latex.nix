@@ -1,6 +1,8 @@
 # Utilities for writing documents with LaTeX.
-{ pkgs, ... }:
+{ self, ... }:
 let
+  inherit (self.config) pkgs;
+
   defaultTexpkgs = ps: { inherit (ps) scheme-full; };
 
   # Helper: extracts argument names from a function and strips them from args

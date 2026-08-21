@@ -1,6 +1,7 @@
 # Utilities for working with Typst documents.
-{ pkgs, ... }:
+{ self, ... }:
 let
+  inherit (self.config) pkgs;
   # Helper: extracts argument names directly from a function signature and strips them from args
   stripCustomArgs =
     fn: args:

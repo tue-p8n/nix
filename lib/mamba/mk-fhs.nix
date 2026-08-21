@@ -1,7 +1,5 @@
 {
   self,
-  config,
-  pkgs,
   ...
 }:
 let
@@ -31,6 +29,8 @@ rec {
       ...
     }@args:
     let
+      inherit (self) config;
+      inherit (config) pkgs;
       resolvePkgs = p: if builtins.isFunction p then p pkgs else p;
 
       nixglPkg = if pkgs ? nixglhost then [ pkgs.nixglhost ] else [ ];
@@ -50,7 +50,7 @@ rec {
         else
           "";
 
-      fhsEnv = pkgs.buildFHSEnv (
+      fhs = pkgs.buildFHSEnv (
         passThroughAttrs
         // {
           name = "${name}-fhs-env";
@@ -81,11 +81,9 @@ rec {
       );
     in
     {
-      env = fhsEnv;
-      accelConfig = config;
+      inherit fhs;
       passthru = passthru // {
-        accelConfig = config;
-        fhsEnv = fhsEnv;
+        inherit fhs;
       };
     };
 }

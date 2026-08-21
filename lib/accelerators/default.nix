@@ -1,17 +1,17 @@
 {
-  pkgs,
-  lib ? pkgs.lib,
+  lib,
 }:
 let
+  # Resolve an accelerator string to a config attrset.
   resolve =
     accel:
     let
-      m = builtins.match "(cpu|cuda|rocm)([0-9]+_[0-9]+)?" accel;
+      m = builtins.match "(none|cpu|cuda|rocm)([0-9]+_[0-9]+)?" accel;
     in
     if m == null then
       throw ''
         accelerators.resolve: unrecognised accelerator "${accel}".
-        Expected: "cpu" | "cuda" | "cudaX_Y" | "rocm".
+        Expected: "none" | "cpu" | "cuda" | "cudaX_Y" | "rocm".
       ''
     else
       let
@@ -24,11 +24,16 @@ let
           else
             { };
 
-        baseConfig = {
-          acceleration = if accelEnum == "cpu" then "none" else accelEnum;
-        } // (lib.optionalAttrs (accelEnum != "cpu") {
-          "${accelEnum}" = parsedConfig;
-        });
+        baseConfig =
+          let
+            acceleration = if accelEnum == "cpu" then "none" else accelEnum;
+          in
+          {
+            inherit acceleration;
+          }
+          // (lib.optionalAttrs (accelEnum != "none") {
+            "${accelEnum}" = parsedConfig;
+          });
 
         # A recursive helper that attaches the functor AND safely merges new config
         makeCallable =
@@ -45,15 +50,17 @@ let
           };
       in
       makeCallable baseConfig;
+
+  # Evaluate the accelerator module.
   evaluate =
-    config:
+    pkgs: config:
     let
       eval = lib.evalModules {
         specialArgs = {
           pkgs' = pkgs;
         };
         modules = [
-          ./schema.nix
+          ./modules
           (builtins.removeAttrs config [ "__functor" ])
         ];
       };
@@ -63,5 +70,10 @@ let
       throw (lib.concatMapStringsSep "\n" (x: x.message) failedAssertions)
     else
       eval;
+
+  # A helper that evaluates a config, resolving the `args` to an attrset if needed.
+  build = pkgs: arg: (evaluate pkgs (if builtins.isAttrs arg then arg else resolve arg)).config;
 in
-arg: (evaluate (if builtins.isAttrs arg then arg else resolve arg)).config
+{
+  inherit resolve build;
+}

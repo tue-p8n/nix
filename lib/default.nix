@@ -1,35 +1,36 @@
 {
   inputs,
   lib,
-  pkgs,
 }:
 
 let
-  # Static modules that don't depend on the accelerator configuration.
+
   staticModules = {
+    accelerators = import ./accelerators { inherit lib; };
     internal = import ./internal { inherit lib; };
     getContainer = import ./get-container.nix { inherit lib; };
   };
-  # Factory to create a new uv environment with a specific accelerator configuration.
-  withAccelerator =
-    accelerator:
+
+  buildModule =
+    pkgs: accelerator:
     lib.makeExtensible (
       self:
       let
-        config = (import ./accelerators { inherit pkgs lib; }) accelerator;
+        config = staticModules.accelerators.build pkgs accelerator;
         context = {
           inherit
             inputs
             lib
-            config
             self
             ;
-          inherit (config) pkgs;
         };
       in
       staticModules
       // {
-        inherit config withAccelerator;
+        inherit config;
+
+        # Rebuild with another accelerator
+        withAccelerator = buildModule pkgs;
 
         # Modules
         uv = import ./uv context;
@@ -39,4 +40,12 @@ let
       }
     );
 in
-withAccelerator { }
+staticModules
+// {
+  # Initialize the module with a given `pkgs` and `accelerator`.
+  build = pkgs: accelerator: (buildModule pkgs accelerator);
+
+  # Some modules depend on `pkgs`, so we must provide a way to initialize these.
+  # To this end, a functor is used.
+  __functor = self: pkgs: (self.build pkgs { });
+}

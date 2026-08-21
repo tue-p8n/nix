@@ -10,10 +10,6 @@ let
 in
 {
   unit = import ./unit.nix { inherit pkgs; };
-  flake-module = import ./flake-module.nix {
-    inherit pkgs;
-    inherit (inputs) self;
-  };
   uv2nix = import ./uv2nix.nix {
     inherit pkgs;
     inherit (inputs.self) lib;

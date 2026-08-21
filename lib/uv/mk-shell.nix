@@ -1,7 +1,5 @@
 {
   self,
-  config,
-  pkgs,
   ...
 }:
 let
@@ -25,6 +23,9 @@ rec {
       ...
     }@args:
     let
+      inherit (self) config;
+      inherit (config) pkgs;
+
       resolvePkgs = p: if builtins.isFunction p then p pkgs else p;
 
       nixglhost = pkgs.nixglhost or null;
