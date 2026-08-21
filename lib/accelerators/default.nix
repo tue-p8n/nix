@@ -25,9 +25,10 @@ let
             { };
 
         baseConfig = {
-          acceleration = accelEnum;
+          acceleration = if accelEnum == "cpu" then "none" else accelEnum;
+        } // (lib.optionalAttrs (accelEnum != "cpu") {
           "${accelEnum}" = parsedConfig;
-        };
+        });
 
         # A recursive helper that attaches the functor AND safely merges new config
         makeCallable =
@@ -46,14 +47,21 @@ let
       makeCallable baseConfig;
   evaluate =
     config:
-    lib.evalModules {
-      specialArgs = {
-        pkgs' = pkgs;
+    let
+      eval = lib.evalModules {
+        specialArgs = {
+          pkgs' = pkgs;
+        };
+        modules = [
+          ./schema.nix
+          (builtins.removeAttrs config [ "__functor" ])
+        ];
       };
-      modules = [
-        ./schema.nix
-        (builtins.removeAttrs config [ "__functor" ])
-      ];
-    };
+      failedAssertions = builtins.filter (x: !x.assertion) eval.config.assertions;
+    in
+    if failedAssertions != [ ] then
+      throw (lib.concatMapStringsSep "\n" (x: x.message) failedAssertions)
+    else
+      eval;
 in
 arg: (evaluate (if builtins.isAttrs arg then arg else resolve arg)).config

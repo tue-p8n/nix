@@ -51,7 +51,7 @@ in
   config = lib.mkIf this.enable (
     let
       pkgs = selectCudaPkgs this.version;
-      version' = builtins.replaceStrings [ "." ] [ "" ] this.version;
+      version' = builtins.replaceStrings [ "." ] [ "" ] (lib.versions.majorMinor pkgs.cudaPackages.cudatoolkit.version);
     in
     {
       inherit pkgs;

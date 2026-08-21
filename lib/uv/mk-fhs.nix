@@ -28,8 +28,8 @@ rec {
     }@args:
     let
       config' =
-        if accelerator != null && accelerator != (config.tag or "") then
-          (accelerators { inherit pkgs lib; }).resolve accelerator
+        if accelerator != null && accelerator != config.name then
+          (accelerators { inherit pkgs lib; }) accelerator
         else
           config;
       pkgs' = config'.pkgs;
@@ -61,13 +61,12 @@ rec {
             ])
             ++ (resolvePkgs packages)
             ++ (resolvePkgs extraPackages)
-            ++ config'.systemLibs;
+            ++ config'.libraries.packages;
 
           profile = ''
             set -e
 
             ${hooks.accelActivationHook {
-              config = config';
               inherit nixglhost;
             }}
             ${hooks.uvBaseHook}
@@ -76,9 +75,9 @@ rec {
             # Keyed by accelerator because every variant of a repo shares one
             # `.venv`, so keying on that would let a CUDA build and a ROCm
             # build read each other's JIT-compiled extensions.
-            export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${config'.tag}}"
+            export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${config'.name}}"
 
-            echo " >>> UV FHS environment activated [${config'.tag}]"
+            echo " >>> UV FHS environment activated [${config'.name}]"
             ${profile}
             set +e
           '';

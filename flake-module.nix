@@ -65,7 +65,7 @@ let
 
   # Deliberately narrower than the direct-lib `mkProject` API: no
   # `overrides`/`extras`/`packages` passthrough (function-typed flake-parts
-  # options are awkward). Reach for `tueLib.resolve { inherit pkgs; }.uv.mkProject`
+  # options are awkward). Reach for `(tueLib pkgs).withAccelerator "cpu".uv.mkProject`
   # directly if you need those.
   uv2nixOpts = { name, ... }: {
     options = {
@@ -139,31 +139,50 @@ let
   # so this can't itself drift from the options it's meant to verify.
   # Forced via the `assert` on `config` below, since an unreferenced `let`
   # binding would otherwise never fire in lazy Nix.
-  contextArgs = import ./lib/_internal/context-args.nix;
+  contextArgs = import ./lib/internal/context-args.nix;
   consumerArgs = fn: builtins.attrNames (removeAttrs (builtins.functionArgs fn) contextArgs);
 
   shellExposed = builtins.attrNames (shellOpts { }).options;
   mmExposed = builtins.attrNames (micromambaOpts { name = "_"; }).options;
   uv2nixExposed = builtins.attrNames (uv2nixOpts { name = "_"; }).options;
 
-  dummyAccel = {
-    tag = "cpu";
+  dummyContext = {
+    inputs = { };
+    inherit lib;
+    config = {
+      tag = "cpu";
+      name = "cpu";
+      pkgs = { };
+      stdenv = { };
+      packages = [ ];
+      environment.variables = { };
+      shellHook = "";
+      libraries.packages = [ ];
+      systemLibs = [ ];
+    };
+    self = {
+      internal = {
+        nixLdHook = _: _: "";
+        exportEnv = _: "";
+        hostGpuHook = _: "";
+      };
+      uv = {
+        hooks = {
+          accelActivationHook = _: "";
+          uvBaseHook = "";
+        };
+      };
+    };
     pkgs = { };
-    stdenv = { };
-    packages = [ ];
-    env = { };
-    shellHook = "";
-    systemLibs = [ ];
   };
 
-  moduleArgs = { inherit inputs lib; };
-  uvModule = import ./lib/uv moduleArgs;
-  mambaModule = import ./lib/mamba moduleArgs;
+  uvModule = import ./lib/uv dummyContext;
+  mambaModule = import ./lib/mamba dummyContext;
 
   builderCoverage = {
     "uv.shells" = {
-      fn = (uvModule dummyAccel).mkShell;
-      exposed = shellExposed;
+      fn = uvModule.mkShell;
+      exposed = lib.remove "accelerator" shellExposed;
       omitted = [
         "packages"
         "extraPackages"
@@ -173,7 +192,7 @@ let
       ];
     };
     "uv.fhs" = {
-      fn = (uvModule dummyAccel).mkFHS;
+      fn = uvModule.mkFHS;
       exposed = shellExposed;
       omitted = [
         "packages"
@@ -183,7 +202,7 @@ let
       ];
     };
     "uv.uv2nix" = {
-      fn = (uvModule dummyAccel).mkProject;
+      fn = uvModule.mkProject;
       exposed = uv2nixExposed;
       omitted = [
         "overrides"
@@ -193,8 +212,8 @@ let
       ];
     };
     "cuda.shells" = {
-      fn = (uvModule dummyAccel).mkShell;
-      exposed = shellExposed;
+      fn = uvModule.mkShell;
+      exposed = lib.remove "accelerator" shellExposed;
       omitted = [
         "packages"
         "extraPackages"
@@ -204,8 +223,8 @@ let
       ];
     };
     "micromamba.shells" = {
-      fn = (mambaModule dummyAccel).mkShell;
-      exposed = mmExposed;
+      fn = mambaModule.mkShell;
+      exposed = lib.remove "accelerator" mmExposed;
       omitted = [
         "packages"
         "extraPackages"
@@ -215,8 +234,8 @@ let
       ];
     };
     "micromamba.fhs" = {
-      fn = (mambaModule dummyAccel).mkFHS;
-      exposed = mmExposed;
+      fn = mambaModule.mkFHS;
+      exposed = lib.remove "accelerator" mmExposed;
       omitted = [
         "packages"
         "extraPackages"
@@ -354,10 +373,7 @@ in
           cfg = lib.recursiveUpdate config.p8n config.tue-p8n;
           resOf =
             accel:
-            tueLib.resolve {
-              inherit pkgs;
-              accelerator = accel;
-            };
+            (tueLib pkgs).withAccelerator accel;
 
           shellArgs = c: dropNull { inherit (c) accelerator name; };
           # buildFHSEnv requires a non-null `name`; fall back to the attribute key.

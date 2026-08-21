@@ -5,12 +5,17 @@
   ...
 }:
 {
-  modules = [
+  imports = [
     ./libraries.nix
     ./cuda.nix
     ./rocm.nix
   ];
   options = {
+    assertions = lib.mkOption {
+      type = lib.types.listOf lib.types.unspecified;
+      default = [ ];
+      description = "A list of assertions to check.";
+    };
     name = lib.mkOption {
       type = lib.types.str;
       default = "cpu";
@@ -23,12 +28,10 @@
         "rocm"
       ];
       default = "none";
-      readOnly = true;
       description = "The type of acceleration to use.";
     };
     pkgs = lib.mkOption {
       type = lib.types.raw;
-      readOnly = true; # can be defined exactly once
       description = "The Nixpkgs package set with platform-specific overrides applied.";
     };
     stdenv = lib.mkOption {
@@ -36,8 +39,8 @@
       description = "The Nixpkgs stdenv with platform-specific overrides applied.";
     };
     packages = lib.mkOption {
-      type = lib.types.listOf lib.types.any;
-      default = { };
+      type = lib.types.listOf lib.types.unspecified;
+      default = [ ];
       description = "A list of packages to include in the environment.";
     };
     environment.variables = lib.mkOption {
@@ -70,6 +73,10 @@
     # Select the accelerator module based on the `acceleration` option.
     cuda.enable = config.acceleration == "cuda";
     rocm.enable = config.acceleration == "rocm";
+
+    libraries.runtime = lib.mkDefault true;
+    libraries.graphics = lib.mkDefault true;
+    libraries.media = lib.mkDefault true;
   };
 
 }

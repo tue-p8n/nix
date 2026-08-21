@@ -26,7 +26,7 @@ in
     shellHook = ''
       echo " >>> ROCm support enabled"
     '';
-    systemLibs = [
+    libraries.extraPackages = [
       pkgs.rocmPackages.clr
       pkgs.rocmPackages.rocblas
       pkgs.rocmPackages.hipblas

@@ -61,18 +61,18 @@ rec {
             ++ (resolvePkgs packages)
             ++ (resolvePkgs extraPackages)
             ++ config.packages
-            ++ config.systemLibs;
+            ++ config.libraries.packages;
 
-          multiPkgs = _: config.systemLibs;
+          multiPkgs = _: config.libraries.packages;
 
           profile = ''
-            ${shell.exportEnv config.env}
+            ${shell.exportEnv config.environment.variables}
             ${gpuHook}
             ${config.shellHook}
             export MAMBA_ROOT_PREFIX="$HOME/.local/share/mamba"
             eval "$(micromamba shell hook --shell bash)"
             ${fileHook}
-            echo "Micromamba FHS environment activated [${config.tag}]"
+            echo "Micromamba FHS environment activated [${config.name}]"
             ${profile}
           '';
 

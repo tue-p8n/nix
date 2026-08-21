@@ -20,14 +20,13 @@ in
     };
     packages = lib.mkOption {
       type = lib.types.listOf lib.types.package;
-      readOnly = true;
       description = "A list of packages to include in the environment.";
     };
   };
   config = lib.mkMerge [
     # Default runtime libraries
-    (lib.mkIf this.runtime.enable {
-      packages = with pkgs; [
+    (lib.mkIf this.runtime {
+      libraries.packages = with pkgs; [
         stdenv.cc.cc.lib
         zlib
         bzip2
@@ -42,32 +41,32 @@ in
     })
 
     # Default graphics libraries
-    (lib.mkIf this.graphics.enable {
-      packages = with pkgs; [
+    (lib.mkIf this.graphics {
+      libraries.packages = with pkgs; [
         libGL
         libGLU
         libglvnd
         libxkbcommon
         glib
-        libX11
-        libXext
-        libXrender
-        libSM
-        libICE
-        libXrandr
-        libXcursor
-        libXi
-        libXinerama
-        libXfixes
-        libXxf86vm
-        libxcb
+        xorg.libX11
+        xorg.libXext
+        xorg.libXrender
+        xorg.libSM
+        xorg.libICE
+        xorg.libXrandr
+        xorg.libXcursor
+        xorg.libXi
+        xorg.libXinerama
+        xorg.libXfixes
+        xorg.libXxf86vm
+        xorg.libxcb
         dbus
       ];
     })
 
     # Default media libraries
-    (lib.mkIf this.media.enable {
-      packages = with pkgs; [
+    (lib.mkIf this.media {
+      libraries.packages = with pkgs; [
         libjpeg
         libpng
         libtiff
@@ -82,8 +81,8 @@ in
     })
 
     # Extra packages
-    (lib.mkIf (this.extras or [ ]) {
-      packages = this.extraPackages;
+    (lib.mkIf (this.extraPackages != [ ]) {
+      libraries.packages = this.extraPackages;
     })
   ];
 }

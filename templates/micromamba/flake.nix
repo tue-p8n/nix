@@ -29,7 +29,7 @@
           ...
         }:
         let
-          mamba = tue-p8n.lib.micromamba { inherit pkgs; };
+          p8n = (tue-p8n.lib pkgs).withAccelerator "cuda";
         in
         {
           _module.args.pkgs = import inputs.nixpkgs {
@@ -43,18 +43,16 @@
           };
 
           # Native shell (requires nix-ld on NixOS).
-          devShells.default = mamba.mkShell {
+          devShells.default = p8n.mamba.mkShell {
             name = "my-micromamba-env";
             file = ./environment.yaml;
-            accelerator = "cuda";
           };
 
           # FHS shell (maximum compatibility for complex CUDA build steps).
           devShells.fhs =
-            (mamba.mkFHS {
+            (p8n.mamba.mkFHS {
               name = "my-micromamba-fhs";
               file = ./environment.yaml;
-              accelerator = "cuda";
             }).env;
         };
     };

@@ -60,35 +60,25 @@ with an error rather than silently ignoring the version; pass `"rocm"`.
 
 ---
 
-## `lib.resolve { pkgs, accelerator? }`
+## `(lib pkgs).withAccelerator accelerator`
 
-Returns `{ config, uv, mamba, micromamba, latex, typst }`.
+Returns a specialized library instance containing `{ config, uv, mamba, latex, typst }`.
 
 Main entry point for resolving hardware accelerators and scoping module builders for a target environment:
 
-- `pkgs`: mandatory nixpkgs package set.
-- `accelerator`: selector string (`"cpu"`, `"cuda"`, `"cuda12_9"`, `"rocm"`) or pre-resolved `accelConfig`. Defaults to `"cpu"`.
+- `accelerator`: selector string (`"cpu"`, `"cuda"`, `"cuda12_9"`, `"rocm"`).
 
-The returned attrset contains:
+The returned specialized library contains:
 
 - `config`: the resolved `accelConfig`.
 - `uv`: `{ mkShell, mkFHS, mkProject, mkUv2nix }`
-- `mamba` / `micromamba`: `{ mkShell, mkFHS }`
+- `mamba`: `{ mkShell, mkFHS }`
 - `latex`: `{ mkShell, mkDocument }`
 - `typst`: `{ mkShell, mkDocument }`
 
 ---
 
-## `lib.accelerators { pkgs, lib? }`
-
-Returns `{ resolve = string -> accelConfig; }`. Most consumers don't need
-this directly — higher-level builders (`lib.resolve` or `lib.uv`, `lib.micromamba`) accept an accelerator selector and resolve it internally.
-
----
-
-## `lib.uv { pkgs, accelerator? }`
-
-Returns `{ mkShell, mkFHS, mkProject, mkUv2nix }`.
+## `uv` Module
 
 
 ### `.mkShell { name?, accelerator? }`
@@ -108,10 +98,10 @@ To add packages or shell hooks, compose with `pkgs.mkShell`:
 
 ```nix
 let
-  base = lib.uv { inherit pkgs; }.mkShell { accelerator = "cuda12_9"; };
+  p8n = (lib pkgs).withAccelerator "cuda12_9";
 in
   pkgs.mkShell {
-    inputsFrom = [ base ];
+    inputsFrom = [ (p8n.uv.mkShell { }) ];
     packages   = [ pkgs.clang-tools ];
     shellHook  = ''
       export UV_NO_BUILD_ISOLATION=true
@@ -170,10 +160,10 @@ replace it.
 
 ```nix
 let
-  project = lib.uv { inherit pkgs; }.mkProject {
+  p8n = (lib pkgs).withAccelerator "cuda12_9";
+  project = p8n.uv.mkProject {
     name = "my-project";
     workspaceRoot = ./.;
-    accelerator = "cuda12_9";
   };
 in {
   devShells.default = project.shell;
@@ -188,33 +178,18 @@ building before you ever entered the shell.
 
 ---
 
-## `lib.micromamba { pkgs }`
+## `mamba` Module
 
-Returns `{ mkShell, mkFHS }` for Conda-compatible environments via
-Micromamba. Both variants create the env from `${file}` on first entry,
-patch it via `mamba-patch.sh`, and `micromamba activate` it.
+Returns `{ mkShell, mkFHS }` for Conda-compatible environments via Micromamba. Both variants create the env from `${file}` on first entry, patch it via `mamba-patch.sh`, and `micromamba activate` it.
 
 | Parameter     | Type     | Default                              |
 | ------------- | -------- | ------------------------------------ |
 | `name`        | `string` | **required**; also the YAML basename |
 | `file`        | `path`   | `./${name}.yaml`                     |
-| `accelerator` | selector | `"cpu"`                              |
 
 ---
 
-## `lib.cuda { pkgs }`
-
-Returns `{ mkShell }`. Bare CUDA dev shell — toolkit, host GPU drivers, no
-UV/Python.
-
-| Parameter     | Type     | Default                             |
-| ------------- | -------- | ----------------------------------- |
-| `name`        | `string` | `"cuda"`                            |
-| `accelerator` | selector | `"cuda"` (pass `"cuda12_6"` to pin) |
-
----
-
-## `lib.latex { pkgs }`
+## `latex` Module
 
 Returns `{ mkShell, mkDocument }`.
 
@@ -223,7 +198,7 @@ Returns `{ mkShell, mkDocument }`.
 
 ---
 
-## `lib.typst { pkgs }`
+## `typst` Module
 
 Returns `{ mkShell, mkDocument }`.
 
@@ -288,7 +263,7 @@ venv). Options per entry:
 
 `uv.uv2nix.<k>` is deliberately narrower than the direct-lib `mkProject` API —
 no `overrides`/`extras`/`packages` passthrough (function-typed flake-parts
-options are awkward). Call `tue-p8n.lib.resolve { inherit pkgs; }.uv.mkProject { ... }`
+options are awkward). Call `(tue-p8n.lib pkgs).withAccelerator "cuda12_9"`'s `uv.mkProject { ... }`
 directly if you need those.
 
 The module does **not** configure `_module.args.pkgs` — set it yourself
@@ -299,10 +274,10 @@ if any of your shells use CUDA.
 
 ---
 
-## `lib.getContainer`
+## `(lib pkgs).getContainer`
 
 ```nix
-lib.getContainer "pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel"
+(lib pkgs).getContainer "pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel"
 ```
 
 Returns `dockerTools.pullImage` args for the given OCI image tag.
@@ -311,17 +286,18 @@ Returns `dockerTools.pullImage` args for the given OCI image tag.
 
 ## `accelConfig` schema
 
-`accelerators.resolve` (and every `mk-*` builder via `accelerator`) returns:
+`withAccelerator` (and the `config` attribute of the specialized library) returns:
 
 ```nix
 {
-  tag        : string                # the original selector ("cuda12_9", "cpu", …)
-  pkgs       : <nixpkgs scope>       # rescoped pkgs (versioned CUDA) or the outer pkgs.
-  stdenv     : <stdenv drv>          # CUDA: cudaPackages.backendStdenv. Else: pkgs.stdenv.
-  packages   : [drv]                 # Nix packages added to the shell PATH
-  env        : { name: str }         # CUDA_HOME, UV_TORCH_BACKEND, ROCM_PATH, …
-  shellHook  : str                   # Per-accelerator bash (CUDA arch sniff, …)
-  systemLibs : [drv]                 # Added to LD_LIBRARY_PATH / NIX_LD_LIBRARY_PATH
+  name                 : string                # environment name ("cuda129", "cpu", ...)
+  acceleration         : string                # "none", "cuda", "rocm"
+  pkgs                 : <nixpkgs scope>       # rescoped pkgs (versioned CUDA) or the outer pkgs.
+  stdenv               : <stdenv drv>          # CUDA: cudaPackages.backendStdenv. Else: pkgs.stdenv.
+  packages             : [drv]                 # Nix packages added to the shell PATH
+  environment.variables : { name: str }        # CUDA_HOME, UV_TORCH_BACKEND, ROCM_PATH, …
+  shellHook            : str                   # Per-accelerator bash (CUDA arch sniff, …)
+  libraries.packages   : [drv]                 # Added to LD_LIBRARY_PATH / NIX_LD_LIBRARY_PATH
 }
 ```
 

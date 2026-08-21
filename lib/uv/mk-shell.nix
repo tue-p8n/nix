@@ -28,7 +28,7 @@ rec {
       resolvePkgs = p: if builtins.isFunction p then p pkgs else p;
 
       nixglhost = pkgs.nixglhost or null;
-      libPath = pkgs.lib.makeLibraryPath config.systemLibs;
+      libPath = pkgs.lib.makeLibraryPath config.libraries.packages;
       passThroughAttrs = stripCustomArgs mkShell args;
     in
     (pkgs.mkShell.override { inherit (config) stdenv; }) (
@@ -38,7 +38,7 @@ rec {
           if name != null then
             name
           else
-            "uv-${builtins.replaceStrings [ "." "cuda-" ] [ "_" "cuda" ] config.tag}";
+            "uv-${builtins.replaceStrings [ "." "cuda-" ] [ "_" "cuda" ] config.name}";
 
         packages =
           config.packages
@@ -57,7 +57,7 @@ rec {
           ++ (resolvePkgs packages)
           ++ (resolvePkgs extraPackages);
 
-        env = (config.env or { }) // env;
+        env = config.environment.variables // env;
 
         shellHook = ''
           ${self.internal.nixLdHook pkgs libPath}
@@ -82,7 +82,7 @@ rec {
           # Keyed by accelerator because every variant of a repo shares one
           # `.venv`, so keying on that would let a CUDA build and a ROCm build
           # read each other's JIT-compiled extensions.
-          export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${config.tag}}"
+          export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${config.name}}"
 
           echo "🐍 UV shell activated: $(uv --version) [${config.name}]"
           ${shellHook}

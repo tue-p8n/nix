@@ -25,12 +25,12 @@
       perSystem =
         { pkgs, ... }:
         let
-          typst = tue-p8n.lib.typst { inherit pkgs; };
+          p8n = tue-p8n.lib pkgs;
         in
         {
-          devShells.default = typst.mkShell { };
+          devShells.default = p8n.typst.mkShell { };
 
-          packages.default = typst.mkDocument {
+          packages.default = p8n.typst.mkDocument {
             name = "my-typst-document";
             src = ./.;
           };

@@ -101,10 +101,10 @@ Then use `tue-p8n.lib` to build your environments — all templates already do t
         overlays = [ ]; # explicit -- avoids nixpkgs reading local overlay files impurely
       };
       # Resolve environment for a given accelerator target:
-      env = tue-p8n.lib.resolve { inherit pkgs; accelerator = "cuda"; };
+      p8n = (tue-p8n.lib pkgs).withAccelerator "cuda";
     in
     {
-      devShells.${system}.default = env.uv.mkShell {
+      devShells.${system}.default = p8n.uv.mkShell {
         name = "my-project";
       };
     };
@@ -137,7 +137,7 @@ _Note: The `--nv` flag is essential to enable NVIDIA GPU acceleration inside the
 ## Repository Structure
 
 - `lib/`: Core library logic.
-  - `default.nix`: Main entry point exposing `resolve`, `accelerators`, `getContainer`, and module wrappers.
+  - `default.nix`: Main entry point exposing `withAccelerator` factory specialization pattern.
   - `uv/`, `mamba/`: Environment builders (`mkShell`, `mkFHS`, `mkProject`).
   - `latex.nix`, `typst.nix`: Document building utilities (`mkShell`, `mkDocument`).
   - `accelerators/`: Centralized hardware configuration (`cpu`, `cuda`, `rocm`).

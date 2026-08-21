@@ -60,20 +60,20 @@ rec {
         packages = nixglPkg ++ (resolvePkgs packages) ++ (resolvePkgs extraPackages) ++ config.packages;
 
         env =
-          (config.env or { })
+          config.environment.variables
           // {
             MAMBA_ROOT_PREFIX = "${builtins.getEnv "HOME"}/.local/share/mamba";
-            LD_LIBRARY_PATH = "${lib.makeLibraryPath config.systemLibs}";
+            LD_LIBRARY_PATH = "${lib.makeLibraryPath config.libraries.packages}";
           }
           // env;
 
         shellHook = ''
-          ${shell.exportEnv config.env}
+          ${shell.exportEnv config.environment.variables}
           ${gpuHook}
           ${config.shellHook}
           eval "$(micromamba shell hook --shell bash)"
           ${fileHook}
-          echo "Micromamba shell activated [${config.tag}]"
+          echo "Micromamba shell activated [${config.name}]"
           ${shellHook}
         '';
 

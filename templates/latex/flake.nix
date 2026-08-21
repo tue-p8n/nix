@@ -25,12 +25,12 @@
       perSystem =
         { pkgs, ... }:
         let
-          latex = tue-p8n.lib.latex { inherit pkgs; };
+          p8n = tue-p8n.lib pkgs;
         in
         {
-          devShells.default = latex.mkShell { };
+          devShells.default = p8n.latex.mkShell { };
 
-          packages.default = latex.mkDocument {
+          packages.default = p8n.latex.mkDocument {
             name = "my-latex-document";
             src = ./.;
           };

@@ -10,10 +10,9 @@
   lib,
 }: let
   venv =
-    ((lib.uv {inherit pkgs;}).mkUv2nix {
+    (((lib pkgs).withAccelerator "cpu").uv.mkProject {
       name = "fixture";
       workspaceRoot = ./fixtures/uv2nix-fixture;
-      accelerator = "cpu";
     })
     .venv;
 in

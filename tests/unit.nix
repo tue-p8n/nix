@@ -81,6 +81,7 @@ let
           backendStdenv = {
             outPath = "/nix/store/mock-cuda-${ver}-stdenv";
           };
+          pkgs = self;
         };
         pkgs = self;
         self = {
@@ -116,67 +117,69 @@ let
     in
     (mkScope "12_9" "/nix/store/mock-cuda-default").self;
 
-  accelerators = import ../lib/accelerators {
-    inherit lib;
-    pkgs = mockPkgs;
-  };
+  accelerators =
+    accel:
+    import ../lib/accelerators {
+      inherit lib;
+      pkgs = mockPkgs;
+    } accel;
 
 
   tests = {
     testCudaDefaultBackend = {
-      expr = (accelerators.resolve "cuda").env.UV_TORCH_BACKEND;
+      expr = (accelerators "cuda").environment.variables.UV_TORCH_BACKEND;
       expected = "cu129";
     };
     testCudaVersioned126 = {
-      expr = (accelerators.resolve "cuda12_6").env.UV_TORCH_BACKEND;
+      expr = (accelerators "cuda12_6").environment.variables.UV_TORCH_BACKEND;
       expected = "cu126";
     };
     testCudaVersioned128 = {
-      expr = (accelerators.resolve "cuda12_8").env.UV_TORCH_BACKEND;
+      expr = (accelerators "cuda12_8").environment.variables.UV_TORCH_BACKEND;
       expected = "cu128";
     };
     testCudaVersionedHomePath = {
-      expr = (accelerators.resolve "cuda12_6").env.CUDA_HOME;
+      expr = (accelerators "cuda12_6").environment.variables.CUDA_HOME;
       expected = "/nix/store/mock-cuda-12_6";
     };
     testCudaPkgsRescoped = {
-      expr = (accelerators.resolve "cuda12_6").pkgs.cudaPackages.cudatoolkit.version;
+      expr = (accelerators "cuda12_6").pkgs.cudaPackages.cudatoolkit.version;
       expected = "12.6.0";
     };
     testCudaPkgsDefaultIsOuter = {
-      expr = (accelerators.resolve "cuda").pkgs.cudaPackages.cudatoolkit.version;
+      expr = (accelerators "cuda").pkgs.cudaPackages.cudatoolkit.version;
       expected = "12.9.0";
     };
     testCudaStdenvIsBackend = {
-      expr = (accelerators.resolve "cuda12_6").stdenv.outPath;
+      expr = (accelerators "cuda12_6").stdenv.outPath;
       expected = "/nix/store/mock-cuda-12_6-stdenv";
     };
 
     testRocmEnvHasRocmPath = {
-      expr = (accelerators.resolve "rocm").env.ROCM_PATH;
+      expr = (accelerators "rocm").environment.variables.ROCM_PATH;
       expected = "/nix/store/mock-clr";
     };
     testRocmVersionSuffixThrows = {
-      expr = (builtins.tryEval (accelerators.resolve "rocm6_4")).success;
+      expr = (builtins.tryEval (accelerators "rocm6_4")).success;
       expected = false;
     };
 
     testCpuPackagesEmpty = {
-      expr = (accelerators.resolve "cpu").packages;
+      expr = (accelerators "cpu").packages;
       expected = [ ];
     };
     testCpuStdenvIsDefault = {
-      expr = (accelerators.resolve "cpu").stdenv.outPath;
+      expr = (accelerators "cpu").stdenv.outPath;
       expected = "/nix/store/mock-default-stdenv";
     };
     testCpuPkgsIsOuter = {
-      expr = (accelerators.resolve "cpu").pkgs == mockPkgs;
+      expr = (accelerators "cpu").pkgs == mockPkgs;
       expected = true;
     };
 
     testTagPreserved = {
-      expr = (accelerators.resolve "cuda12_6").tag;
-      expected = "cuda12_6";
+      expr = (accelerators "cuda12_6").name;
+      expected = "cuda126";
     };
   };
 

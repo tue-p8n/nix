@@ -17,7 +17,7 @@
       nixglhost,
     }:
     ''
-      ${self.internal.exportEnv config.env}
+      ${self.internal.exportEnv config.environment.variables}
       ${repoRootHook}
 
       ${self.internal.hostGpuHook nixglhost}

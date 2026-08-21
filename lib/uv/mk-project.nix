@@ -3,6 +3,8 @@
   lib,
   self,
   pkgs,
+  config,
+  ...
 }:
 let
   inherit (inputs) uv2nix;
@@ -37,9 +39,9 @@ rec {
       ...
     }@args:
     let
-      config =
-        if accelerator != null && accelerator != (config.tag or "") then
-          (accelerators { inherit pkgs lib; }).resolve accelerator
+      config' =
+        if accelerator != null && accelerator != config.name then
+          (accelerators { inherit pkgs lib; }) accelerator
         else
           config;
       resolvePkgs = p: if builtins.isFunction p then p pkgs else p;
@@ -47,10 +49,10 @@ rec {
       nixglhost = pkgs.nixglhost or null;
       nixglPkg = if nixglhost != null then [ nixglhost ] else [ ];
 
-      tag = config.tag or "cpu";
+      tag = config'.name;
 
       # Select torch extra backend (ROCm special cased)
-      torchExtra = if lib.hasPrefix "rocm" tag then "rocm" else config.env.UV_TORCH_BACKEND or "cpu";
+      torchExtra = if lib.hasPrefix "rocm" tag then "rocm" else config'.environment.variables.UV_TORCH_BACKEND or "cpu";
 
       # Missing build systems. Default configuration includes some popular packages
       # as a default.
@@ -149,7 +151,7 @@ rec {
       pythonSet =
         (pkgs.callPackage pyprojectNix.build.packages {
           inherit python;
-          inherit (config) stdenv;
+          inherit (config') stdenv;
         }).overrideScope
           (
             lib.composeManyExtensions [
@@ -163,19 +165,19 @@ rec {
 
       venv = pythonSet.mkVirtualEnv "${name}-venv" pyprojectDeps;
 
-      libPath = pkgs.lib.makeLibraryPath (config.systemLibs ++ extraLibs);
+      libPath = pkgs.lib.makeLibraryPath (config'.libraries.packages ++ extraLibs);
       passThroughAttrs = stripCustomArgs mkProject args;
     in
     {
       inherit workspace pythonSet venv;
 
-      shell = (pkgs.mkShell.override { inherit (config) stdenv; }) (
+      shell = (pkgs.mkShell.override { inherit (config') stdenv; }) (
         passThroughAttrs
         // {
           name = "${name}-uv2nix-${tag}";
 
           packages =
-            config.packages
+            config'.packages
             ++ (with pkgs; [
               uv
               git
@@ -186,7 +188,7 @@ rec {
             ++ (resolvePkgs packages)
             ++ (resolvePkgs extraPackages);
 
-          env = (config.env or { }) // env;
+          env = config'.environment.variables // env;
 
           shellHook = ''
             ${self.internal.nixLdHook pkgs libPath}
@@ -244,7 +246,7 @@ rec {
           '';
 
           passthru = passthru // {
-            config = config;
+            config = config';
             venv = venv;
             pythonSet = pythonSet;
             workspace = workspace;
