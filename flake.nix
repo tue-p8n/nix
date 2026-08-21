@@ -70,7 +70,10 @@
       ];
 
       flake = {
-        lib = import ./lib { inherit inputs; };
+        lib = import ./lib {
+          inherit inputs;
+          lib = inputs.nixpkgs.lib;
+        };
         flakeModule = import ./flake-module.nix;
         templates = {
           uv = {
@@ -130,10 +133,7 @@
               shellHook = config.pre-commit.installationScript;
 
             };
-          }
-          // (import ./shells {
-            inherit inputs pkgs;
-          });
+          };
 
           # Packages
           packages = {

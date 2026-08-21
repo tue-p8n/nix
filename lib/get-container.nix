@@ -1,5 +1,6 @@
 # This function returns a container spec from the registry by name.
 # The registry is a lost of container specs.
+_:
 let
   registry = builtins.listToAttrs (
     builtins.map

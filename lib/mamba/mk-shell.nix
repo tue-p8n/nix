@@ -1,4 +1,10 @@
-{ lib, ... }:
+{
+  pkgs,
+  self,
+  config,
+  lib,
+  ...
+}:
 let
   stripCustomArgs =
     fn: args:
@@ -6,10 +12,8 @@ let
       customKeys = builtins.attrNames (builtins.functionArgs fn);
     in
     builtins.removeAttrs args customKeys;
-  shell = import ../_internal { inherit lib; };
-  accelerators = import ../accelerators;
+  shell = self.internal;
 in
-accelConfig@{ pkgs, ... }:
 rec {
   mkShell =
     {
@@ -26,20 +30,13 @@ rec {
       env ? { },
       shellHook ? "",
       passthru ? { },
-      accelerator ? null,
       ...
     }@args:
     let
-      accelConfig' =
-        if accelerator != null && accelerator != (accelConfig.tag or "") then
-          (accelerators { inherit pkgs lib; }).resolve accelerator
-        else
-          accelConfig;
-      pkgs' = accelConfig'.pkgs;
-      resolvePkgs = p: if builtins.isFunction p then p pkgs' else p;
+      resolvePkgs = p: if builtins.isFunction p then p pkgs else p;
 
-      nixglPkg = if pkgs' ? nixglhost then [ pkgs'.nixglhost ] else [ ];
-      gpuHook = if pkgs' ? nixglhost then shell.hostGpuHook pkgs'.nixglhost else "";
+      nixglPkg = if pkgs ? nixglhost then [ pkgs.nixglhost ] else [ ];
+      gpuHook = if pkgs ? nixglhost then shell.hostGpuHook pkgs.nixglhost else "";
 
       passThroughAttrs = stripCustomArgs mkShell args;
 
@@ -55,34 +52,33 @@ rec {
         else
           "";
     in
-    (pkgs'.mkShell.override { stdenv = accelConfig'.stdenv; }) (
+    (pkgs.mkShell.override { stdenv = config.stdenv; }) (
       passThroughAttrs
       // {
         inherit name;
 
-        packages =
-          nixglPkg ++ (resolvePkgs packages) ++ (resolvePkgs extraPackages) ++ accelConfig'.packages;
+        packages = nixglPkg ++ (resolvePkgs packages) ++ (resolvePkgs extraPackages) ++ config.packages;
 
         env =
-          (accelConfig'.env or { })
+          (config.env or { })
           // {
             MAMBA_ROOT_PREFIX = "${builtins.getEnv "HOME"}/.local/share/mamba";
-            LD_LIBRARY_PATH = "${lib.makeLibraryPath accelConfig'.systemLibs}";
+            LD_LIBRARY_PATH = "${lib.makeLibraryPath config.systemLibs}";
           }
           // env;
 
         shellHook = ''
-          ${shell.exportEnv accelConfig'.env}
+          ${shell.exportEnv config.env}
           ${gpuHook}
-          ${accelConfig'.shellHook}
+          ${config.shellHook}
           eval "$(micromamba shell hook --shell bash)"
           ${fileHook}
-          echo "Micromamba shell activated [${accelConfig'.tag}]"
+          echo "Micromamba shell activated [${config.tag}]"
           ${shellHook}
         '';
 
         passthru = passthru // {
-          accelConfig = accelConfig';
+          accelConfig = config;
         };
       }
     );

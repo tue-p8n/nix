@@ -1,8 +1,8 @@
 {
   inputs,
   lib,
-  shell,
-  uvShell,
+  self,
+  pkgs,
 }:
 let
   inherit (inputs) uv2nix;
@@ -17,7 +17,6 @@ let
     in
     builtins.removeAttrs args customKeys;
 in
-accelConfig@{ pkgs, ... }:
 rec {
   mkProject =
     {
@@ -38,22 +37,20 @@ rec {
       ...
     }@args:
     let
-      accelConfig' =
-        if accelerator != null && accelerator != (accelConfig.tag or "") then
+      config =
+        if accelerator != null && accelerator != (config.tag or "") then
           (accelerators { inherit pkgs lib; }).resolve accelerator
         else
-          accelConfig;
-      pkgs' = accelConfig'.pkgs;
-      resolvePkgs = p: if builtins.isFunction p then p pkgs' else p;
+          config;
+      resolvePkgs = p: if builtins.isFunction p then p pkgs else p;
 
-      nixglhost = pkgs'.nixglhost or null;
+      nixglhost = pkgs.nixglhost or null;
       nixglPkg = if nixglhost != null then [ nixglhost ] else [ ];
 
-      tag = accelConfig'.tag or "cpu";
+      tag = config.tag or "cpu";
 
       # Select torch extra backend (ROCm special cased)
-      torchExtra =
-        if lib.hasPrefix "rocm" tag then "rocm" else accelConfig'.env.UV_TORCH_BACKEND or "cpu";
+      torchExtra = if lib.hasPrefix "rocm" tag then "rocm" else config.env.UV_TORCH_BACKEND or "cpu";
 
       # Missing build systems. Default configuration includes some popular packages
       # as a default.
@@ -150,9 +147,9 @@ rec {
 
       # Python set
       pythonSet =
-        (pkgs'.callPackage pyprojectNix.build.packages {
+        (pkgs.callPackage pyprojectNix.build.packages {
           inherit python;
-          inherit (accelConfig') stdenv;
+          inherit (config) stdenv;
         }).overrideScope
           (
             lib.composeManyExtensions [
@@ -166,20 +163,20 @@ rec {
 
       venv = pythonSet.mkVirtualEnv "${name}-venv" pyprojectDeps;
 
-      libPath = pkgs'.lib.makeLibraryPath (accelConfig'.systemLibs ++ extraLibs);
+      libPath = pkgs.lib.makeLibraryPath (config.systemLibs ++ extraLibs);
       passThroughAttrs = stripCustomArgs mkProject args;
     in
     {
       inherit workspace pythonSet venv;
 
-      shell = (pkgs'.mkShell.override { inherit (accelConfig') stdenv; }) (
+      shell = (pkgs.mkShell.override { inherit (config) stdenv; }) (
         passThroughAttrs
         // {
           name = "${name}-uv2nix-${tag}";
 
           packages =
-            accelConfig'.packages
-            ++ (with pkgs'; [
+            config.packages
+            ++ (with pkgs; [
               uv
               git
               just
@@ -189,12 +186,12 @@ rec {
             ++ (resolvePkgs packages)
             ++ (resolvePkgs extraPackages);
 
-          env = (accelConfig'.env or { }) // env;
+          env = (config.env or { }) // env;
 
           shellHook = ''
-            ${shell.nixLdHook pkgs' libPath}
+            ${self.internal.nixLdHook pkgs libPath}
 
-            # Listing `venv` in `packages` makes nixpkgs' Python setup hook
+            # Listing `venv` in `packages` makes nixpkgs Python setup hook
             # export PYTHONPATH pointing at its site-packages. PYTHONPATH
             # outranks a venv's own site-packages, so it silently shadows any
             # *other* environment the user works in: activating a uv-managed
@@ -230,8 +227,7 @@ rec {
             unset _nvlib
             export LD_LIBRARY_PATH
 
-            ${uvShell.accelActivationHook {
-              accelConfig = accelConfig';
+            ${self.uv.hooks.accelActivationHook {
               inherit nixglhost;
             }}
 
@@ -248,7 +244,7 @@ rec {
           '';
 
           passthru = passthru // {
-            accelConfig = accelConfig';
+            config = config;
             venv = venv;
             pythonSet = pythonSet;
             workspace = workspace;

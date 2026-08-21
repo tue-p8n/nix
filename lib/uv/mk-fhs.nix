@@ -1,9 +1,12 @@
 {
   lib,
-  uvShell,
+  self,
+  pkgs,
+  config,
   ...
 }:
 let
+  inherit (self.uv) hooks;
   stripCustomArgs =
     fn: args:
     let
@@ -12,7 +15,6 @@ let
     builtins.removeAttrs args customKeys;
   accelerators = import ../accelerators;
 in
-accelConfig@{ pkgs, ... }:
 rec {
   mkFHS =
     {
@@ -25,12 +27,12 @@ rec {
       ...
     }@args:
     let
-      accelConfig' =
-        if accelerator != null && accelerator != (accelConfig.tag or "") then
+      config' =
+        if accelerator != null && accelerator != (config.tag or "") then
           (accelerators { inherit pkgs lib; }).resolve accelerator
         else
-          accelConfig;
-      pkgs' = accelConfig'.pkgs;
+          config;
+      pkgs' = config'.pkgs;
       resolvePkgs = p: if builtins.isFunction p then p pkgs' else p;
 
       nixglhost = pkgs'.nixglhost or null;
@@ -59,21 +61,24 @@ rec {
             ])
             ++ (resolvePkgs packages)
             ++ (resolvePkgs extraPackages)
-            ++ accelConfig'.systemLibs;
+            ++ config'.systemLibs;
 
           profile = ''
             set -e
 
-            ${uvShell.accelActivationHook { accelConfig = accelConfig'; inherit nixglhost; }}
-            ${uvShell.uvBaseHook}
+            ${hooks.accelActivationHook {
+              config = config';
+              inherit nixglhost;
+            }}
+            ${hooks.uvBaseHook}
 
             # Set after the activation hook, which is what defines REPO_ROOT.
             # Keyed by accelerator because every variant of a repo shares one
             # `.venv`, so keying on that would let a CUDA build and a ROCm
             # build read each other's JIT-compiled extensions.
-            export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${accelConfig'.tag}}"
+            export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${config'.tag}}"
 
-            echo " >>> UV FHS environment activated [${accelConfig'.tag}]"
+            echo " >>> UV FHS environment activated [${config'.tag}]"
             ${profile}
             set +e
           '';
@@ -82,9 +87,9 @@ rec {
     in
     {
       env = fhsEnv;
-      accelConfig = accelConfig';
+      config = config';
       passthru = passthru // {
-        accelConfig = accelConfig';
+        config = config';
         fhsEnv = fhsEnv;
       };
     };

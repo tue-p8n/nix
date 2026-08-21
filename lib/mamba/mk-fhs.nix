@@ -1,4 +1,9 @@
-{ lib, ... }:
+{
+  self,
+  config,
+  pkgs,
+  ...
+}:
 let
   stripCustomArgs =
     fn: args:
@@ -6,10 +11,8 @@ let
       customKeys = builtins.attrNames (builtins.functionArgs fn);
     in
     builtins.removeAttrs args customKeys;
-  shell = import ../_internal { inherit lib; };
-  accelerators = import ../accelerators;
+  shell = self.internal;
 in
-accelConfig@{ pkgs, ... }:
 rec {
   mkFHS =
     {
@@ -25,20 +28,13 @@ rec {
       file ? null,
       profile ? "",
       passthru ? { },
-      accelerator ? null,
       ...
     }@args:
     let
-      accelConfig' =
-        if accelerator != null && accelerator != (accelConfig.tag or "") then
-          (accelerators { inherit pkgs lib; }).resolve accelerator
-        else
-          accelConfig;
-      pkgs' = accelConfig'.pkgs;
-      resolvePkgs = p: if builtins.isFunction p then p pkgs' else p;
+      resolvePkgs = p: if builtins.isFunction p then p pkgs else p;
 
-      nixglPkg = if pkgs' ? nixglhost then [ pkgs'.nixglhost ] else [ ];
-      gpuHook = if pkgs' ? nixglhost then shell.hostGpuHook pkgs'.nixglhost else "";
+      nixglPkg = if pkgs ? nixglhost then [ pkgs.nixglhost ] else [ ];
+      gpuHook = if pkgs ? nixglhost then shell.hostGpuHook pkgs.nixglhost else "";
 
       passThroughAttrs = stripCustomArgs mkFHS args;
 
@@ -54,7 +50,7 @@ rec {
         else
           "";
 
-      fhsEnv = pkgs'.buildFHSEnv (
+      fhsEnv = pkgs.buildFHSEnv (
         passThroughAttrs
         // {
           name = "${name}-fhs-env";
@@ -64,19 +60,19 @@ rec {
             nixglPkg
             ++ (resolvePkgs packages)
             ++ (resolvePkgs extraPackages)
-            ++ accelConfig'.packages
-            ++ accelConfig'.systemLibs;
+            ++ config.packages
+            ++ config.systemLibs;
 
-          multiPkgs = _: accelConfig'.systemLibs;
+          multiPkgs = _: config.systemLibs;
 
           profile = ''
-            ${shell.exportEnv accelConfig'.env}
+            ${shell.exportEnv config.env}
             ${gpuHook}
-            ${accelConfig'.shellHook}
+            ${config.shellHook}
             export MAMBA_ROOT_PREFIX="$HOME/.local/share/mamba"
             eval "$(micromamba shell hook --shell bash)"
             ${fileHook}
-            echo "Micromamba FHS environment activated [${accelConfig'.tag}]"
+            echo "Micromamba FHS environment activated [${config.tag}]"
             ${profile}
           '';
 
@@ -86,9 +82,9 @@ rec {
     in
     {
       env = fhsEnv;
-      accelConfig = accelConfig';
+      accelConfig = config;
       passthru = passthru // {
-        accelConfig = accelConfig';
+        accelConfig = config;
         fhsEnv = fhsEnv;
       };
     };

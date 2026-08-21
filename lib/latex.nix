@@ -1,5 +1,4 @@
 # Utilities for writing documents with LaTeX.
-{ ... }:
 { pkgs, ... }:
 let
   defaultTexpkgs = ps: { inherit (ps) scheme-full; };
