@@ -82,6 +82,7 @@ rec {
     in
     {
       inherit fhs;
+      env = fhs.env;
       passthru = passthru // {
         inherit fhs;
       };

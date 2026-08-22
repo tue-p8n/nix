@@ -6,17 +6,17 @@
 let
 
   staticModules = {
-    accelerators = import ./accelerators { inherit lib; };
+    accelerators = import ./accelerators { inherit lib; nixpkgs = args: import inputs.nixpkgs args; };
     internal = import ./internal { inherit lib; };
     getContainer = import ./get-container.nix { inherit lib; };
   };
 
   buildModule =
-    pkgs: accelerator:
+    system: accelerator:
     lib.makeExtensible (
       self:
       let
-        config = staticModules.accelerators.build pkgs accelerator;
+        config = staticModules.accelerators.build system accelerator;
         context = {
           inherit
             inputs
@@ -30,7 +30,7 @@ let
         inherit config;
 
         # Rebuild with another accelerator
-        withAccelerator = buildModule pkgs;
+        withAccelerator = buildModule system;
 
         # Modules
         uv = import ./uv context;
@@ -42,10 +42,9 @@ let
 in
 staticModules
 // {
-  # Initialize the module with a given `pkgs` and `accelerator`.
-  build = pkgs: accelerator: (buildModule pkgs accelerator);
+  # Initialize the module for a given system string and accelerator config.
+  build = system: accelerator: (buildModule system accelerator);
 
-  # Some modules depend on `pkgs`, so we must provide a way to initialize these.
-  # To this end, a functor is used.
-  __functor = self: pkgs: (self.build pkgs { });
+  # Convenience functor: `tueLib system` initializes with the default (cpu) accelerator.
+  __functor = self: system: (self.build system { });
 }

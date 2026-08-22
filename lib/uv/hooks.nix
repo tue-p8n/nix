@@ -1,4 +1,8 @@
-{ self, config, ... }: rec {
+{ self, ... }:
+let
+  config = self.config;
+in
+rec {
   repoRootHook = ''
     REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || REPO_ROOT=$(pwd)
     export REPO_ROOT

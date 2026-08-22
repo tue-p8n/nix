@@ -63,6 +63,7 @@
       imports = [
         inputs.git-hooks.flakeModule
         inputs.treefmt.flakeModule
+        ./flake-module.nix
       ];
 
       systems = [
@@ -70,12 +71,7 @@
       ];
 
       flake = {
-        lib =
-          pkgs:
-          import ./lib {
-            inherit inputs;
-            inherit pkgs;
-          };
+        lib = import ./lib { inherit inputs; lib = inputs.nixpkgs.lib; };
 
         flakeModule = import ./flake-module.nix;
 
@@ -144,7 +140,7 @@
           packages = {
             # Curated OCI containers
             oci-pytorch2_8_0-cuda12_9-cudnn9-devel = pkgs.dockerTools.pullImage (
-              (self.lib pkgs).getContainer "pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel"
+              self.lib.getContainer "pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel"
             );
           };
 

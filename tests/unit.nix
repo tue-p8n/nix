@@ -117,13 +117,23 @@ let
     in
     (mkScope "12_9" "/nix/store/mock-cuda-default").self;
 
+  # Mock nixpkgs import function — mirrors the signature used in cuda.nix/default.nix.
+  mockNixpkgs =
+    { config ? { }, ... }:
+    if config.cudaSupport or false then
+      # Return CUDA-enabled mockPkgs (already has cudaPackages_* attrs)
+      mockPkgs
+    else
+      mockPkgs;
+
+  mockSystem = "x86_64-linux";
+
   accelerators =
     accel:
-    import ../lib/accelerators {
+    (import ../lib/accelerators {
       inherit lib;
-      pkgs = mockPkgs;
-    } accel;
-
+      nixpkgs = mockNixpkgs;
+    }).build mockSystem accel;
 
   tests = {
     testCudaDefaultBackend = {

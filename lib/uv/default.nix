@@ -1,8 +1,10 @@
 # uv/default.nix
-context@{ lib, ... }:
-lib.mkMerge builtins.map (path: import path context) [
-  ./build.nix
+context@{ ... }:
+builtins.foldl' (acc: path: acc // (import path context)) { } [
   ./mk-shell.nix
   ./mk-fhs.nix
   ./mk-project.nix
 ]
+// {
+  hooks = import ./hooks.nix context;
+}

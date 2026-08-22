@@ -1,32 +1,12 @@
 {
   config,
-  pkgs,
-  pkgs',
+  nixpkgs,
+  system,
   lib,
   ...
 }:
 
 let
-  selectCudaPkgs =
-    version:
-    if version == null then
-      pkgs'.cudaPackages.pkgs
-    else
-      let
-        tag = builtins.replaceStrings [ "." ] [ "_" ] version;
-        attr = "cudaPackages_${tag}";
-      in
-      if pkgs' ? ${attr} then
-        pkgs'.${attr}.pkgs
-      else
-        throw ''
-          accelerators: requested CUDA version "${version}" is unavailable in nixpkgs (`pkgs.${attr}`).
-          Available attributes: ${
-            lib.concatStringsSep ", " (
-              builtins.filter (n: lib.hasPrefix "cudaPackages_" n) (builtins.attrNames pkgs)
-            )
-          }
-        '';
   this = config.cuda;
 in
 {
@@ -38,18 +18,67 @@ in
     };
     version = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "12.9";
       description = ''
-        The CUDA version to use. If not specified, the default CUDA version in nixpkgs will be used.
-        Available versions: ${
-          lib.concatStringsSep ", " (
-            builtins.filter (n: lib.hasPrefix "cudaPackages_" n) (builtins.attrNames pkgs)
-          )
-        }
+        The CUDA version to use (e.g. `"12.9"`). If `null`, the default
+        `cudaPackages` from nixpkgs is used.
+      '';
+    };
+    capabilities = lib.mkOption {
+      type = lib.types.nullOr (lib.types.listOf lib.types.str);
+      default = null;
+      example = [
+        "8.6"
+        "8.9"
+      ];
+      description = ''
+        Optionally restrict builds to specific CUDA compute capabilities (e.g., `["8.6" "8.9"]`)
+        to speed up compilation. If `null`, nixpkgs builds for all standard supported capabilities.
       '';
     };
   };
+
   config = lib.mkIf this.enable (
     let
+      # Call the nixpkgs function with CUDA flags using the pinned flake input.
+      cudaPkgs' = nixpkgs {
+        inherit system;
+        config =
+          {
+            cudaSupport = true;
+            cudaForwardCompat = true;
+            allowUnfree = true;
+          }
+          // (lib.optionalAttrs (this.capabilities != null) {
+            cudaCapabilities = this.capabilities;
+          });
+        # Pin overlays to empty so two machines with different
+        # ~/.config/nixpkgs/overlays.nix don't silently diverge.
+        overlays = [ ];
+      };
+
+      selectCudaPkgs =
+        version:
+        if version == null then
+          cudaPkgs'.cudaPackages.pkgs
+        else
+          let
+            tag = builtins.replaceStrings [ "." ] [ "_" ] version;
+            attr = "cudaPackages_${tag}";
+          in
+          if cudaPkgs' ? ${attr} then
+            cudaPkgs'.${attr}.pkgs
+          else
+            throw ''
+              accelerators: requested CUDA version "${version}" is unavailable in nixpkgs (`pkgs.${attr}`).
+              Available attributes: ${
+                lib.concatStringsSep ", " (
+                  builtins.filter (n: lib.hasPrefix "cudaPackages_" n) (builtins.attrNames cudaPkgs')
+                )
+              }
+            '';
+
       pkgs = selectCudaPkgs this.version;
       version' = builtins.replaceStrings [ "." ] [ "" ] (lib.versions.majorMinor pkgs.cudaPackages.cudatoolkit.version);
     in

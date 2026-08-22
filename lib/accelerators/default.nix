@@ -1,5 +1,6 @@
 {
   lib,
+  nixpkgs,
 }:
 let
   # Resolve an accelerator string to a config attrset.
@@ -31,7 +32,7 @@ let
           {
             inherit acceleration;
           }
-          // (lib.optionalAttrs (accelEnum != "none") {
+          // (lib.optionalAttrs (accelEnum != "none" && accelEnum != "cpu") {
             "${accelEnum}" = parsedConfig;
           });
 
@@ -43,21 +44,25 @@ let
             __functor =
               _self: extraAccelConfig:
               makeCallable (
-                lib.recursiveUpdate cfg {
-                  "${accelEnum}" = extraAccelConfig;
-                }
+                if accelEnum != "none" && accelEnum != "cpu" then
+                  lib.recursiveUpdate cfg {
+                    "${accelEnum}" = extraAccelConfig;
+                  }
+                else
+                  cfg
               );
           };
       in
       makeCallable baseConfig;
 
   # Evaluate the accelerator module.
+  # `pkgs` is derived inside the module from `nixpkgs` + `system` — not passed in.
   evaluate =
-    pkgs: config:
+    system: config:
     let
       eval = lib.evalModules {
         specialArgs = {
-          pkgs' = pkgs;
+          inherit system nixpkgs;
         };
         modules = [
           ./modules
@@ -72,7 +77,7 @@ let
       eval;
 
   # A helper that evaluates a config, resolving the `args` to an attrset if needed.
-  build = pkgs: arg: (evaluate pkgs (if builtins.isAttrs arg then arg else resolve arg)).config;
+  build = system: arg: (evaluate system (if builtins.isAttrs arg then arg else resolve arg)).config;
 in
 {
   inherit resolve build;

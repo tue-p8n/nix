@@ -1,5 +1,5 @@
-context@{ lib, ... }:
-lib.mkMerge builtins.map (path: import path context) [
+context@{ ... }:
+builtins.foldl' (acc: path: acc // (import path context)) { } [
   ./mk-shell.nix
   ./mk-fhs.nix
 ]

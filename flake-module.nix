@@ -1,7 +1,7 @@
 # Flake-parts module
 # ==================
-# Consumers must arrange `_module.args.pkgs` with `cudaSupport`/`cudaForwardCompat`/
-# `allowUnfree` themselves if they declare any CUDA shell.
+# CUDA pkgs re-import (cudaSupport / allowUnfree / cudaCapabilities) is handled
+# automatically by the accelerator module whenever a CUDA accelerator is selected.
 {
   inputs,
   lib,
@@ -9,24 +9,29 @@
   ...
 }:
 let
-  tueLib = import ./lib { inherit lib inputs; };
+  p8n-lib = import ./lib { inherit lib inputs; };
 in
 {
   options.perSystem = flake-parts-lib.mkPerSystemOption (
     {
       config,
-      pkgs,
       system,
       ...
     }:
     let
-      this = config.p8n;
+      p8n = p8n-lib.build system (
+        if config.p8n.accelerator.name != null then
+          (p8n-lib.accelerators.resolve config.p8n.accelerator.name)
+        else
+          config.p8n.accelerator.config
+      );
+
     in
     {
       options.p8n = {
         accelerator = {
           name = lib.mkOption {
-            type = lib.nullOr lib.types.str;
+            type = lib.types.nullOr lib.types.str;
             default = "cpu";
             example = "cuda12_9";
             description = ''
@@ -38,8 +43,8 @@ in
             '';
           };
           config = lib.mkOption {
-            type = lib.nullOr lib.types.attrs;
-            default = -null;
+            type = lib.types.nullOr lib.types.attrs;
+            default = null;
             description = ''
               Resolved accelerator configuration. If `accelerator.name` is non-null, this is
               automatically derived from that. Otherwise, you can specify a custom
@@ -50,59 +55,13 @@ in
             '';
           };
         };
-        cuda = {
-          enable = lib.mkOption {
-            type = lib.types.bool;
-            default = false;
-            description = ''
-              Whether to automatically re-import `pkgs` for this system target with
-              `cudaSupport = true`, `cudaForwardCompat = true`, and `allowUnfree = true`.
-            '';
-          };
-          capabilities = lib.mkOption {
-            type = lib.types.nullOr (lib.types.listOf lib.types.str);
-            default = null;
-            example = [
-              "8.6"
-              "8.9"
-            ];
-            description = ''
-              Optionally specify target CUDA compute capabilities (e.g., `["8.6" "8.9"]`)
-              to restrict builds to specific GPU architectures and speed up compilation.
-              If `null`, nixpkgs builds for all standard supported capabilities.
-            '';
-          };
-        };
       };
 
       config = {
-        # Expose the library per-system bound to the current packages and default accelerator.
-        _module.args.p8n = tueLib.build pkgs (
-          if this.accelerator.name != null then
-            this.accelerator.config
-          else
-            (tueLib.accelerators.resolve this.accelerator.name)
-        );
-
-        # CUDA support requires unfree packages and forward-compat.
-        _module.args.pkgs = lib.mkIf this.cuda.enable (
-          import inputs.nixpkgs {
-            inherit system;
-            config = {
-              cudaSupport = true;
-              cudaForwardCompat = true;
-              allowUnfree = true;
-            }
-            // (lib.optionalAttrs (this.cuda.capabilities != null) {
-              cudaCapabilities = this.cuda.capabilities;
-            });
-
-            # Without this, nixpkgs reads ~/.config/nixpkgs/overlays.nix /
-            # $NIXPKGS_OVERLAYS impurely, so two machines could silently get
-            # different `pkgs` from the identical flake.
-            overlays = [ ];
-          }
-        );
+        # p8n is built from `system` (not from `pkgs`), so assigning pkgs here
+        # is safe — there is no circular dependency.
+        _module.args.p8n = p8n;
+        _module.args.pkgs = p8n.config.pkgs;
       };
     }
   );
