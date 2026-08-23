@@ -23,13 +23,16 @@ in
     {
       options.p8n = {
         config = lib.mkOption {
-          type = lib.types.nullOr (lib.types.either lib.types.str lib.types.attrs);
-          default = "cpu";
-          example = "cuda12_9";
+          type = lib.types.nullOr lib.types.attrs;
+          default = p8n-lib.accelerators.resolve "cpu";
+          example = lib.literalExpression ''
+            p8n-lib.accelerators.resolve "cuda12_9"
+          '';
           description = ''
-            Default accelerator selector or configuration object for dev shells and projects.
-            `"cpu"` | `"cuda"` | `"cudaX_Y"` | `"rocm"`, or an attribute set configuration.
-            Set to `null` to disable automatic library instantiation.
+            Accelerator configuration object for dev shells and projects.
+            Typically constructed via `tueLib.accelerators.resolve "cuda12_9"` or
+            as an explicit attribute set.
+            Set to `null` to disable automatic library instantiation in `_module.args.p8n`.
           '';
         };
 
