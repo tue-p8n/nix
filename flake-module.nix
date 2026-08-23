@@ -22,20 +22,6 @@ in
     in
     {
       options.p8n = {
-        config = lib.mkOption {
-          type = lib.types.nullOr lib.types.attrs;
-          default = p8n-lib.accelerators.resolve "cpu";
-          example = lib.literalExpression ''
-            p8n-lib.accelerators.resolve "cuda12_9"
-          '';
-          description = ''
-            Accelerator configuration object for dev shells and projects.
-            Typically constructed via `tueLib.accelerators.resolve "cuda12_9"` or
-            as an explicit attribute set.
-            Set to `null` to disable automatic library instantiation in `_module.args.p8n`.
-          '';
-        };
-
         nixpkgs = {
           manage = lib.mkOption {
             type = lib.types.bool;
@@ -75,10 +61,8 @@ in
       };
 
       config = {
-        # Expose the library per-system bound to the current packages and default accelerator.
-        _module.args.p8n = lib.mkIf (this.config != null) (
-          p8n-lib.build pkgs this.config
-        );
+        # Expose the library per-system bound to the current packages.
+        _module.args.p8n = p8n-lib pkgs;
 
         _module.args.pkgs = lib.mkIf this.nixpkgs.manage (
           import inputs.nixpkgs {

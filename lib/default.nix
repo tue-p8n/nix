@@ -2,37 +2,33 @@
   inputs,
   lib,
 }:
-
 let
+  config = import ./config { inherit lib; };
+  internal = import ./internal { inherit lib; };
 
-  staticModules = {
-    accelerators = import ./accelerators { inherit lib; };
-    internal = import ./internal { inherit lib; };
-    getContainer = import ./get-container.nix { inherit lib; };
-  };
-
-  buildModule =
-    pkgs: accelerator:
+  build =
+    pkgs:
     lib.makeExtensible (
       self:
       let
-        config = staticModules.accelerators.build pkgs accelerator;
         context = {
           inherit
             inputs
             lib
+            pkgs
+            config
+            internal
             self
             ;
         };
       in
-      staticModules
-      // {
-        inherit config;
-
-        # Rebuild with another accelerator
-        withAccelerator = buildModule pkgs;
-
-        # Modules
+      {
+        inherit
+          config
+          internal
+          ;
+        container = import ./container context;
+        accelerator = import ./accelerator context;
         uv = import ./uv context;
         mamba = import ./mamba context;
         latex = import ./latex.nix context;
@@ -40,12 +36,12 @@ let
       }
     );
 in
-staticModules
-// {
-  # Initialize the module with a given `pkgs` and `accelerator`.
-  build = pkgs: accelerator: (buildModule pkgs accelerator);
-
-  # Some modules depend on `pkgs`, so we must provide a way to initialize these.
-  # To this end, a functor is used.
-  __functor = self: pkgs: (self.build pkgs { });
+{
+  inherit
+    build
+    config
+    internal
+    ;
+  container = import ./container { inherit lib; };
+  __functor = self: pkgs: self.build pkgs;
 }

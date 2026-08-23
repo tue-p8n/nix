@@ -1,9 +1,40 @@
 # Utilities for writing documents with LaTeX.
-{ self, ... }:
+{
+  inputs ? { },
+  pkgs,
+  ...
+}:
 let
-  inherit (self.config) pkgs;
-
+  defaultPkgs = pkgs;
   defaultTexpkgs = ps: { inherit (ps) scheme-full; };
+
+  resolveTexlive =
+    target:
+    if builtins.isAttrs target then
+      target
+    else if builtins.isString target then
+      let
+        v = builtins.replaceStrings [ "." ] [ "_" ] target;
+      in
+      if target == "default" || target == "latest" then
+        pkgs.texlive
+      else if v == "2024" || v == "24_05" then
+        if inputs ? nixpkgs-24-05 then
+          inputs.nixpkgs-24-05.legacyPackages.${pkgs.stdenv.hostPlatform.system}.texlive
+        else
+          throw "p8n.latex: inputs.nixpkgs-24-05 is not available."
+      else if v == "2023" || v == "23_11" then
+        if inputs ? nixpkgs-23-11 then
+          inputs.nixpkgs-23-11.legacyPackages.${pkgs.stdenv.hostPlatform.system}.texlive
+        else
+          throw "p8n.latex: inputs.nixpkgs-23-11 is not available."
+      else
+        throw ''
+          p8n.latex: unrecognised texlive version "${target}".
+          Expected: "default" | "latest" | "2024" | "24.05" | "2023" | "23.11" or a texlive package set.
+        ''
+    else
+      throw "p8n.latex: invalid texlive argument.";
 
   # Helper: extracts argument names from a function and strips them from args
   stripCustomArgs =
@@ -16,6 +47,9 @@ in
 rec {
   mkShell =
     {
+      pkgs ? defaultPkgs,
+      texlive ? (if version != null then version else "default"),
+      version ? null,
       texpkgs ? defaultTexpkgs,
       packages ? (with pkgs; [ cacert ]),
       extraPackages ? [ ],
@@ -25,8 +59,8 @@ rec {
       ...
     }@args:
     let
-      tex = pkgs.texlive.combine (texpkgs pkgs.texlive);
-      # `rec` allows referencing `mkShell` here safely!
+      resolvedTexlive = resolveTexlive texlive;
+      tex = resolvedTexlive.combine (texpkgs resolvedTexlive);
       passThroughAttrs = stripCustomArgs mkShell args;
     in
     pkgs.mkShell (
@@ -53,6 +87,9 @@ rec {
     {
       name,
       src,
+      pkgs ? defaultPkgs,
+      texlive ? (if version != null then version else "default"),
+      version ? null,
       main ? "main.tex",
       texpkgs ? defaultTexpkgs,
       packages ? (with pkgs; [ cacert ]),
@@ -64,7 +101,8 @@ rec {
       ...
     }@args:
     let
-      tex = pkgs.texlive.combine (texpkgs pkgs.texlive);
+      resolvedTexlive = resolveTexlive texlive;
+      tex = resolvedTexlive.combine (texpkgs resolvedTexlive);
       shellEscapeFlag = if shellEscape then "-shell-escape" else "";
       flagsStr = builtins.concatStringsSep " " (
         [
@@ -75,7 +113,6 @@ rec {
         ++ latexmkFlags
       );
 
-      # `rec` allows referencing `mkDocument` here safely!
       passThroughAttrs = stripCustomArgs mkDocument args;
     in
     pkgs.stdenv.mkDerivation (

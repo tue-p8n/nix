@@ -1,9 +1,12 @@
 {
-  self,
+  pkgs,
+  config,
+  internal,
   ...
 }:
 let
-  inherit (self.uv) hooks;
+  defaultPkgs = pkgs;
+  hooks = import ./hooks.nix { inherit internal; };
   stripCustomArgs =
     fn: args:
     let
@@ -14,6 +17,8 @@ in
 rec {
   mkFHS =
     {
+      accelerator ? "cpu",
+      pkgs ? defaultPkgs,
       name ? "uv-fhs-shell",
       packages ? (_ps: [ ]),
       extraPackages ? (_ps: [ ]),
@@ -22,16 +27,15 @@ rec {
       ...
     }@args:
     let
-      inherit (self) config;
-      inherit (config) pkgs;
+      accelConfig = config.build pkgs accelerator;
+      pkgs' = accelConfig.pkgs;
+      resolvePkgs = p: if builtins.isFunction p then p pkgs' else p;
 
-      resolvePkgs = p: if builtins.isFunction p then p pkgs else p;
-
-      nixglhost = pkgs.nixglhost or null;
+      nixglhost = pkgs'.nixglhost or null;
       nixglPkg = if nixglhost != null then [ nixglhost ] else [ ];
       passThroughAttrs = stripCustomArgs mkFHS args;
 
-      fhs = pkgs.buildFHSEnv (
+      fhs = pkgs'.buildFHSEnv (
         passThroughAttrs
         // {
           inherit name;
@@ -53,12 +57,14 @@ rec {
             ])
             ++ (resolvePkgs packages)
             ++ (resolvePkgs extraPackages)
-            ++ config.libraries.packages;
+            ++ accelConfig.packages
+            ++ accelConfig.libraries.packages;
 
           profile = ''
             set -e
 
             ${hooks.accelActivationHook {
+              config = accelConfig;
               inherit nixglhost;
             }}
             ${hooks.uvBaseHook}
@@ -67,9 +73,9 @@ rec {
             # Keyed by accelerator because every variant of a repo shares one
             # `.venv`, so keying on that would let a CUDA build and a ROCm
             # build read each other's JIT-compiled extensions.
-            export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${config.name}}"
+            export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${accelConfig.name}}"
 
-            echo " >>> UV FHS environment activated [${config.name}]"
+            echo " >>> UV FHS environment activated [${accelConfig.name}]"
             ${profile}
             set +e
           '';
@@ -78,8 +84,10 @@ rec {
     in
     {
       inherit fhs;
+      env = fhs.env;
       passthru = passthru // {
         inherit fhs;
+        config = accelConfig;
       };
     };
 }

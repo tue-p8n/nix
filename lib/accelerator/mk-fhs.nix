@@ -18,16 +18,9 @@ rec {
     {
       accelerator ? "cpu",
       pkgs ? defaultPkgs,
-      packages ? (
-        ps: with ps; [
-          cacert
-          micromamba
-          git
-        ]
-      ),
+      name ? "accelerator-fhs-shell",
+      packages ? (_ps: [ ]),
       extraPackages ? (_ps: [ ]),
-      name ? "mamba-fhs-shell",
-      file ? null,
       profile ? "",
       passthru ? { },
       ...
@@ -41,47 +34,41 @@ rec {
       nixglPkg = if nixglhost != null then [ nixglhost ] else [ ];
       passThroughAttrs = stripCustomArgs mkFHS args;
 
-      fileHook =
-        if file != null then
-          ''
-            if [ -f "${file}" ]; then
-              if ! micromamba env list | grep -q "${name}"; then
-                echo " >>> Creating micromamba environment '${name}' from ${file}..."
-                micromamba create -q -n "${name}" -f "${file}" -y
-              fi
-              micromamba activate "${name}"
-            fi
-          ''
-        else
-          "";
-
       fhs = pkgs'.buildFHSEnv (
         passThroughAttrs
         // {
-          name = "${name}-fhs-env";
+          inherit name;
 
           targetPkgs =
-            _ps:
+            ps:
             nixglPkg
+            ++ (with ps; [
+              git
+              coreutils
+              bashInteractive
+              zlib
+              stdenv.cc.cc.lib
+              fontconfig
+              freetype
+              dbus
+              cacert
+            ])
             ++ (resolvePkgs packages)
             ++ (resolvePkgs extraPackages)
             ++ accelConfig.packages
             ++ accelConfig.libraries.packages;
 
-          multiPkgs = _: accelConfig.libraries.packages;
-
           profile = ''
-            export MAMBA_ROOT_PREFIX="$HOME/.local/share/mamba"
+            set -e
+
             ${internal.exportEnv accelConfig.environment.variables}
             ${internal.hostGpuHook nixglhost}
             ${accelConfig.shellHook}
-            eval "$(micromamba shell hook --shell bash)"
-            ${fileHook}
-            echo " >>> Micromamba FHS environment activated [${accelConfig.name}]"
-            ${profile}
-          '';
 
-          runScript = "bash";
+            echo " >>> Accelerator FHS environment activated [${accelConfig.name}]"
+            ${profile}
+            set +e
+          '';
         }
       );
     in

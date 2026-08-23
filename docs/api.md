@@ -1,216 +1,38 @@
-# Library API Reference
+# Library API Reference & Cookbooks
 
-This page documents the public API exported by `flake.lib` in `github:tue-p8n/nix`.
-
-## Accessing the library
-
-```nix
-{
-  inputs = {
-    tue-p8n.url = "github:tue-p8n/nix";
-    nixpkgs.follows = "tue-p8n/nixpkgs";
-  };
-
-  outputs = { tue-p8n, nixpkgs, ... }:
-    let
-      system = builtins.currentSystem;
-      pkgs = import nixpkgs {
-        inherit system;
-        config = { cudaSupport = true; cudaForwardCompat = true; allowUnfree = true; };
-        overlays = [ ]; # explicit -- avoids nixpkgs reading local overlay files impurely
-      };
-      lib = tue-p8n.lib;
-    in { ... };
-}
-```
+This page documents the complete public API and use-case cookbooks exported by `github:tue-p8n/nix`.
 
 ---
 
-## Accelerator selectors
-
-Every `mk-*` function with an `accelerator` argument takes one of:
-
-| Selector                        | Meaning                                                |
-| ------------------------------- | ------------------------------------------------------ |
-| `"cpu"`                         | CPU-only                                               |
-| `"cuda"`                        | NVIDIA CUDA, **default** version of the pinned nixpkgs |
-| `"cudaX_Y"` (e.g. `"cuda12_9"`) | NVIDIA CUDA pinned to a specific major.minor           |
-| `"rocm"`                        | AMD ROCm — one toolchain per nixpkgs pin, see below    |
-
-### CPU-only / Unmodified `pkgs`
-
-`accelerator = "cpu"` (the default across `lib.resolve` and all builders) uses the provided `pkgs` instance **as-is**, without re-importing nixpkgs, overriding CUDA/ROCm configuration flags, or injecting hardware-specific environment variables or driver hooks.
-
-### Why pinning the CUDA version matters
-
-
-`accelerator = "cuda12_6"` doesn't just rename the toolkit — it switches the
-shell to a `pkgs` instance where `cudaPackages` defaults to 12.6, using
-nixpkgs' canonical `cudaPackages_X_Y.pkgs` rescoping. Per-version shells
-therefore produce distinct closures: cuda-aware packages (cudnn, nccl,
-libcublas, …) are rebuilt against the chosen CUDA, while non-cuda packages
-(zlib, glib, stdenv, git, …) are reused from the outer pkgs.
-
-### ROCm version selection
-
-ROCm does not support version pinning. Unlike CUDA, nixpkgs ships no
-`rocmPackages_X_Y.pkgs` rescoping — only one ROCm toolchain exists per
-nixpkgs revision. `accelerators.resolve` rejects a `"rocmX_Y"` selector
-with an error rather than silently ignoring the version; pass `"rocm"`.
+## Table of Contents
+1. [Accessing the Library](#accessing-the-library)
+2. [Accelerator Selectors](#accelerator-selectors)
+3. [Module API Reference](#module-api-reference)
+   - [`p8n.accelerator` (Bare C++/CUDA/ROCm Toolchains)](#p8naccelerator-module)
+   - [`p8n.uv` (UV & uv2nix Python Development)](#p8nuv-module)
+   - [`p8n.mamba` (Micromamba FHS Environments)](#p8nmamba-module)
+   - [`p8n.container` (Apptainer/SIF & OCI Images)](#p8ncontainer-module)
+   - [`p8n.latex` & `p8n.typst` (Paper Documents)](#p8nlatex--p8ntypst-modules)
+   - [`p8n.config` (Hardware Engine)](#p8nconfig-module)
+4. [Use-Case Cookbooks & Examples](#use-case-cookbooks--examples)
+   - [Cookbook 1: Pure-Nix Python Project with SIF & OCI Output (`uv.mkProject`)](#cookbook-1-pure-nix-python-project-with-sif--oci-output)
+   - [Cookbook 2: Interactive Fast Prototyping Shell (`uv.mkShell`)](#cookbook-2-interactive-fast-prototyping-shell)
+   - [Cookbook 3: Bare CUDA / C++ Development Shell](#cookbook-3-bare-cuda--c-development-shell)
+   - [Cookbook 4: Micromamba Conda Environment](#cookbook-4-micromamba-conda-environment)
+   - [Cookbook 5: HPC Cluster Deployment & SLURM Integration](#cookbook-5-hpc-cluster-deployment--slurm-integration)
+   - [Cookbook 6: Building SIF Containers from Curated Registry Images](#cookbook-6-building-sif-containers-from-curated-registry-images)
+   - [Cookbook 7: Advanced uv2nix Overrides (C++/CUDA Extensions)](#cookbook-7-advanced-uv2nix-overrides-ccuda-extensions)
+   - [Cookbook 8: Writing Academic Papers (LaTeX & Typst)](#cookbook-8-writing-academic-papers-latex--typst)
+   - [Cookbook 9: Extending the Library via `p8n.extend`](#cookbook-9-extending-the-library-via-p8nextend)
+5. [`flakeModule` Options Reference](#flakemodule-configuration-options)
 
 ---
 
-## `(lib pkgs).withAccelerator accelerator`
+## Accessing the Library
 
-Returns a specialized library instance containing `{ config, uv, mamba, latex, typst }`.
+### In `flake-parts` (Recommended)
 
-Main entry point for resolving hardware accelerators and scoping module builders for a target environment:
-
-- `accelerator`: selector string (`"cpu"`, `"cuda"`, `"cuda12_9"`, `"rocm"`).
-
-The returned specialized library contains:
-
-- `config`: the resolved `accelConfig`.
-- `uv`: `{ mkShell, mkFHS, mkProject, mkUv2nix }`
-- `mamba`: `{ mkShell, mkFHS }`
-- `latex`: `{ mkShell, mkDocument }`
-- `typst`: `{ mkShell, mkDocument }`
-
----
-
-## `uv` Module
-
-
-### `.mkShell { name?, accelerator? }`
-
-Plain `pkgs.mkShell` derivation provisioning a UV-capable environment:
-`uv`, build tooling, NIX_LD/NIX_LD_LIBRARY_PATH, host GPU drivers,
-`UV_PROJECT_ENVIRONMENT` → `$REPO_ROOT/.venv`, and (for CUDA)
-`UV_TORCH_BACKEND`. Does **not** create a venv or run `uv sync` — that's
-the consumer's responsibility.
-
-| Parameter     | Type             | Default                                        |
-| ------------- | ---------------- | ---------------------------------------------- |
-| `name`        | `string \| null` | `null` (auto-derived as `"uv-${accelerator}"`) |
-| `accelerator` | selector         | `"cpu"`                                        |
-
-To add packages or shell hooks, compose with `pkgs.mkShell`:
-
-```nix
-let
-  p8n = (lib pkgs).withAccelerator "cuda12_9";
-in
-  pkgs.mkShell {
-    inputsFrom = [ (p8n.uv.mkShell { }) ];
-    packages   = [ pkgs.clang-tools ];
-    shellHook  = ''
-      export UV_NO_BUILD_ISOLATION=true
-      export TEXINPUTS=".:$REPO_ROOT/packages//:"
-    '';
-  }
-```
-
-`inputsFrom` inherits the base shell's `buildInputs` and concatenates its
-`shellHook`. The base sets all of its env vars via `export …` in the hook
-because mkShell's `env` attrset is **not** inherited by `inputsFrom`.
-
-### `.mkFHS { name, accelerator? }`
-
-`buildFHSEnv` flavor for tooling that genuinely cannot work with `nix-ld`.
-`name` is required; `accelerator` defaults to `"cpu"`.
-
-### `.mkProject { name, workspaceRoot, python?, accelerator?, extras?, overrides?, packages? }` (or `.mkUv2nix`)
-
-Builds the project's **entire** Python environment as ordinary Nix
-derivations via [uv2nix] — no runtime `uv sync`. `workspaceRoot`'s
-`pyproject.toml` + `uv.lock` drive the build directly; every wheel is
-resolved and fetched through the lockfile at build time.
-
-[uv2nix]: https://pyproject-nix.github.io/uv2nix/introduction.html
-
-| Parameter       | Type                 | Default                                                                            |
-| --------------- | -------------------- | ---------------------------------------------------------------------------------- |
-| `name`          | `string`             | **required** — must match `[project].name` in `pyproject.toml`                     |
-| `workspaceRoot` | `path`               | **required** — directory containing `pyproject.toml` + `uv.lock`                   |
-| `python`        | `derivation`         | `pkgs.python313`                                                                   |
-| `accelerator`   | selector             | `"cpu"`                                                                            |
-| `extras`        | `[string]`           | `[]` — extra `[project.optional-dependencies]` groups beyond the accelerator's own |
-| `overrides`     | `final: prev: {...}` | identity — composed _after_ the built-in autoPatchelf relaxation                   |
-| `packages`      | `pkgs -> [drv]`      | `[]` — extra Nix packages (tools) added to the dev shell's `PATH`                  |
-
-Returns `{shell, venv, pythonSet, workspace}`:
-
-- `shell` — the dev shell derivation (`nix develop`).
-- `venv` — the built virtualenv itself, usable as a `packages` output
-  (`nix build`).
-- `pythonSet`, `workspace` — the underlying uv2nix package set and loaded
-  workspace, for consumers who need to build further derivations on top.
-
-`accelerator` selects a `[project.optional-dependencies]` group the same way
-`UV_TORCH_BACKEND` does for `mkShell`/`mkFHS` (`cpu` / `cuXYZ` / `rocm`) —
-**that group must exist and be non-empty** in `pyproject.toml` (uv itself
-doesn't record an extra with zero dependencies in `uv.lock`, so uv2nix has
-nothing to resolve for it).
-
-Wheels that dlopen `.so`s living in sibling wheels (`torch`, `torchvision`,
-`torchaudio`, `triton`, `xformers`, `bitsandbytes`, every `nvidia-*` package)
-get `autoPatchelfIgnoreMissingDeps = true` by default — this is what makes
-CUDA wheels buildable at all; `overrides` composes on top of it, it doesn't
-replace it.
-
-```nix
-let
-  p8n = (lib pkgs).withAccelerator "cuda12_9";
-  project = p8n.uv.mkProject {
-    name = "my-project";
-    workspaceRoot = ./.;
-  };
-in {
-  devShells.default = project.shell;
-  packages.default = project.venv;
-}
-```
-
-Unlike `mkShell`/`mkFHS`, this strategy needs `uv.lock` to exist and be
-**committed** — there's no deferred "run `uv sync` at shell-entry time"
-step, since the whole point is that Nix already did the resolving and
-building before you ever entered the shell.
-
----
-
-## `mamba` Module
-
-Returns `{ mkShell, mkFHS }` for Conda-compatible environments via Micromamba. Both variants create the env from `${file}` on first entry, patch it via `mamba-patch.sh`, and `micromamba activate` it.
-
-| Parameter     | Type     | Default                              |
-| ------------- | -------- | ------------------------------------ |
-| `name`        | `string` | **required**; also the YAML basename |
-| `file`        | `path`   | `./${name}.yaml`                     |
-
----
-
-## `latex` Module
-
-Returns `{ mkShell, mkDocument }`.
-
-- `mkShell { texpkgs? }` — `pkgs.mkShell` with `texlive.combine (texpkgs pkgs.texlive)` (defaults to `scheme-full`). Override `texpkgs` for a smaller scheme.
-- `mkDocument { name, src, main?, texpkgs?, shellEscape? }` — builds a PDF derivation with `latexmk`. Extra `mkDerivation` attrs pass through.
-
----
-
-## `typst` Module
-
-Returns `{ mkShell, mkDocument }`.
-
-- `mkShell {}` — `pkgs.mkShell` with `typst`, `hayagriva`, `typstyle`.
-- `mkDocument { name, src, main?, output? }` — builds a PDF derivation. Extra `mkDerivation` attrs pass through.
-
----
-
-## `flakeModule` (flake-parts integration)
-
-For consumers using [flake-parts], `tue-p8n` exposes a flake-parts module
-that lets you declare dev shells declaratively:
+When using `flake-parts`, import `tue-p8n.flakeModule`. The library instance is automatically bound to `pkgs` and injected as `p8n` into `perSystem`:
 
 ```nix
 {
@@ -220,86 +42,436 @@ that lets you declare dev shells declaratively:
     flake-parts.follows = "tue-p8n/flake-parts";
   };
 
-  outputs = inputs @ { flake-parts, tue-p8n, ... }:
+  outputs = inputs@{ flake-parts, tue-p8n, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [ tue-p8n.flakeModule ];
       systems = [ "x86_64-linux" ];
 
-      perSystem = { system, ... }: {
-        # Required for any CUDA shell.
-        _module.args.pkgs = import inputs.nixpkgs {
-          inherit system;
-          config = { cudaSupport = true; cudaForwardCompat = true; allowUnfree = true; };
-          overlays = [ ]; # explicit -- avoids nixpkgs reading local overlay files impurely
-        };
-
-        tue-p8n = {
-          uv.shells.dev   = { accelerator = "cuda12_9"; };
-          uv.fhs.dev-fhs  = { accelerator = "cuda12_9"; };
-          uv.uv2nix.native = { workspaceRoot = ./.; accelerator = "cuda12_9"; };
-          cuda.shells.bare = {};
-          micromamba.shells.mamba = { name = "mamba"; file = ./environment.yaml; accelerator = "cuda12_9"; };
-          latex.shells.tex = {};
-          typst.shells.tp = {};
+      perSystem = { pkgs, p8n, ... }: {
+        devShells.default = p8n.uv.mkShell {
+          accelerator = "cuda12_9";
         };
       };
     };
 }
 ```
 
-Each entry under `tue-p8n.<builder>.{shells,fhs}.<key>` materialises as
-`devShells.<key>` (`uv.uv2nix` also materialises `packages.<key>`, the built
-venv). Options per entry:
+### In Vanilla Flakes
 
-| Builder                       | Options                                                                 |
-| ----------------------------- | ----------------------------------------------------------------------- |
-| `uv.shells.<k>`               | `accelerator`, `name?`                                                  |
-| `uv.fhs.<k>`                  | `accelerator`, `name?` (defaults to `<k>`)                              |
-| `uv.uv2nix.<k>`               | `workspaceRoot`, `accelerator?`, `name?` (defaults to `<k>`), `python?` |
-| `cuda.shells.<k>`             | `accelerator`, `name?`                                                  |
-| `micromamba.{shells,fhs}.<k>` | `accelerator`, `name?`, `file?`                                         |
-| `latex.shells.<k>`            | `texpkgs?`                                                              |
-| `typst.shells.<k>`            | (none)                                                                  |
-
-`uv.uv2nix.<k>` is deliberately narrower than the direct-lib `mkProject` API —
-no `overrides`/`extras`/`packages` passthrough (function-typed flake-parts
-options are awkward). Call `(tue-p8n.lib pkgs).withAccelerator "cuda12_9"`'s `uv.mkProject { ... }`
-directly if you need those.
-
-The module does **not** configure `_module.args.pkgs` — set it yourself
-with `cudaSupport = true; cudaForwardCompat = true; allowUnfree = true;`
-if any of your shells use CUDA.
-
-[flake-parts]: https://flake.parts
-
----
-
-## `(lib pkgs).getContainer`
-
-```nix
-(lib pkgs).getContainer "pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel"
-```
-
-Returns `dockerTools.pullImage` args for the given OCI image tag.
-
----
-
-## `accelConfig` schema
-
-`withAccelerator` (and the `config` attribute of the specialized library) returns:
+Instantiate the library by passing your evaluated `pkgs` set to `tue-p8n.lib`:
 
 ```nix
 {
-  name                 : string                # environment name ("cuda129", "cpu", ...)
-  acceleration         : string                # "none", "cuda", "rocm"
-  pkgs                 : <nixpkgs scope>       # rescoped pkgs (versioned CUDA) or the outer pkgs.
-  stdenv               : <stdenv drv>          # CUDA: cudaPackages.backendStdenv. Else: pkgs.stdenv.
-  packages             : [drv]                 # Nix packages added to the shell PATH
-  environment.variables : { name: str }        # CUDA_HOME, UV_TORCH_BACKEND, ROCM_PATH, …
-  shellHook            : str                   # Per-accelerator bash (CUDA arch sniff, …)
-  libraries.packages   : [drv]                 # Added to LD_LIBRARY_PATH / NIX_LD_LIBRARY_PATH
+  inputs = {
+    tue-p8n.url = "github:tue-p8n/nix";
+    nixpkgs.follows = "tue-p8n/nixpkgs";
+  };
+
+  outputs = { self, nixpkgs, tue-p8n, ... }:
+    let
+      system = "x86_64-linux";
+      pkgs = import nixpkgs {
+        inherit system;
+        config = { cudaSupport = true; cudaForwardCompat = true; allowUnfree = true; };
+        overlays = [ ];
+      };
+      p8n = tue-p8n.lib pkgs; # or tue-p8n.lib.build pkgs
+    in
+    {
+      devShells.${system}.default = p8n.uv.mkShell {
+        accelerator = "cuda12_9";
+      };
+    };
 }
 ```
 
-Builders should use `accelConfig.pkgs` (not the outer `pkgs`) so cuda-aware
-references resolve against the user-selected version.
+---
+
+## Accelerator Selectors
+
+Every builder accepting an `accelerator` argument supports either a selector string or an explicit configuration attribute set:
+
+| Selector                        | Meaning                                                |
+| ------------------------------- | ------------------------------------------------------ |
+| `"cpu"`                         | CPU-only (default)                                     |
+| `"cuda"`                        | NVIDIA CUDA, **default** version of the pinned nixpkgs |
+| `"cudaX_Y"` (e.g. `"cuda12_9"`) | NVIDIA CUDA pinned to a specific major.minor           |
+| `"rocm"`                        | AMD ROCm toolchain                                     |
+
+- **CPU-only**: `accelerator = "cpu"` uses the provided `pkgs` instance **as-is**, without overriding CUDA/ROCm flags or injecting hardware driver hooks.
+- **Pinning CUDA Versions**: `accelerator = "cuda12_6"` switches the shell to a `pkgs` instance where `cudaPackages` defaults to 12.6 using nixpkgs' `cudaPackages_X_Y.pkgs` rescoping. CUDA-aware libraries (`cudnn`, `nccl`, `libcublas`) are rebuilt against the chosen CUDA version while non-CUDA tools are reused.
+- **ROCm Selection**: ROCm toolchains do not support version sub-pinning in nixpkgs. Pass `"rocm"`.
+
+---
+
+## Module API Reference
+
+### `p8n.accelerator` Module
+
+Creates bare development environments with CUDA/ROCm compilers, GPU driver libraries, and Nix-LD/FHS without Python, UV, or Conda.
+
+#### `p8n.accelerator.mkShell { accelerator?, name?, packages?, extraPackages?, env?, shellHook?, passthru? }`
+- **`accelerator`** (`string | attrs`, default `"cpu"`): Target hardware accelerator.
+- **`name`** (`string | null`, default `null`): Shell derivation name.
+- **`packages` / `extraPackages`** (`[drv] | (pkgs -> [drv])`, default `[]`): Additional tools.
+- **`env`** (`attrs`, default `{}`): Environment variables.
+- **`shellHook`** (`string`, default `""`): Bash commands executed on entry.
+
+#### `p8n.accelerator.mkFHS { accelerator?, name?, packages?, extraPackages?, profile?, passthru? }`
+Creates a `buildFHSEnv` sandbox for standalone C++/CUDA tools that require a traditional `/usr/lib` layout.
+
+---
+
+### `p8n.uv` Module
+
+Python environment builders powered by [uv](https://github.com/astral-sh/uv) and [uv2nix](https://pyproject-nix.github.io/uv2nix/).
+
+#### `p8n.uv.mkShell { accelerator?, name?, packages?, extraPackages?, env?, shellHook?, passthru? }`
+Interactive development shell with `uv`, compiler toolchains, `nix-ld` host GPU bindings, and `UV_TORCH_BACKEND` configured. Dependency resolution is performed interactively via runtime `uv sync`.
+
+#### `p8n.uv.mkFHS { accelerator?, name?, packages?, extraPackages?, profile?, passthru? }`
+FHS container flavor for Python tooling requiring full FHS filesystem emulation.
+
+#### `p8n.uv.mkProject { name, workspaceRoot, accelerator?, python?, extras?, overrides?, packages?, extraPackages?, env?, shellHook?, missingBuildSystems?, crossWheelLinkingPackages?, extraLibs? }`
+Builds the project's **entire** Python virtual environment hermetically as Nix derivations via `uv2nix` (zero runtime `uv sync`). Requires `pyproject.toml` and a committed `uv.lock`.
+
+Returns `{ shell, venv, oci, sif, pythonSet, workspace }`:
+- `shell`: The interactive development shell derivation (`nix develop`).
+- `venv`: The fully built virtual environment derivation (`nix build`).
+- `oci`: A layered OCI / Docker archive derivation ready for `docker load` or registry publication.
+- `sif`: A pre-built Apptainer / Singularity `.sif` image derivation ready for HPC cluster execution.
+- `pythonSet`, `workspace`: Underlying uv2nix structures.
+
+#### `p8n.uv.mkOCI { name, venv, tag?, accelerator?, packages?, extraPackages?, extraLibs?, env?, cmd?, entrypoint?, maxLayers? }`
+Builds a layered OCI/Docker container image derivation containing the Python virtualenv, host dynamic libraries, and hardware paths using `dockerTools.buildLayeredImage`.
+
+---
+
+### `p8n.mamba` Module
+
+#### `p8n.mamba.mkFHS { name?, file?, accelerator?, packages?, extraPackages?, profile?, passthru? }`
+Creates a robust `buildFHSEnv` sandbox for Conda/Micromamba environments. Automatically initializes the environment from `${file}` on first entry and exports accelerator paths (`CUDA_HOME`, `TORCH_EXTENSIONS_DIR`).
+
+---
+
+### `p8n.container` Module
+
+Provides utilities for working with containerized environments, Apptainer/Singularity images, and OCI registries.
+
+#### `p8n.container.mkSIF { name, ociImage, pkgs? }` (Alias: `p8n.container.mkApptainer`)
+Converts any OCI/Docker image derivation into an Apptainer / Singularity `.sif` image derivation via `apptainer build`.
+
+#### `p8n.container.get (string)`
+```nix
+p8n.container.get "pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel"
+```
+Returns `dockerTools.pullImage` attribute specification for curated container image digests from the registry.
+
+---
+
+### `p8n.latex` & `p8n.typst` Modules
+
+#### `p8n.latex.mkShell { texlive?, version?, texpkgs?, packages?, extraPackages?, env?, shellHook? }`
+- **`texlive` / `version`** (`string | attrs`, default `"default"`): Selects the TeX Live release baseline (`"default"`, `"2024"` / `"24.05"`, `"2023"` / `"23.11"`) or a custom TeX Live package set. Use `"2023"` for legacy document templates that have package incompatibilities with newer LaTeX kernels.
+- **`texpkgs`** (`ps -> attrs`, default `ps: { inherit (ps) scheme-full; }`): Custom TeX Live package set function.
+
+#### `p8n.latex.mkDocument { name, src, texlive?, version?, main?, texpkgs?, packages?, extraPackages?, shellEscape?, latexmkFlags?, env? }`
+Builds a PDF derivation using `latexmk`. Accepts `texlive` / `version` to pin older TeX Live release environments (e.g. `"2023"`). Defaults to `main = "main.tex"`.
+
+#### `p8n.typst.mkShell { packages?, extraPackages?, env?, shellHook? }`
+Interactive shell with `typst`, `hayagriva`, and `typstyle`.
+
+#### `p8n.typst.mkDocument { name, src, main?, output?, buildInputs?, extraBuildInputs?, nativeBuildInputs?, extraNativeBuildInputs?, env? }`
+Builds a PDF derivation using `typst compile`. Defaults to `main = "main.typ"` and `output = "document.pdf"`.
+
+---
+
+### `p8n.config` Module
+
+The configuration engine evaluates and resolves hardware accelerator targets:
+- `p8n.config.resolve (string)`: Parses a shorthand accelerator string into an attribute set.
+- `p8n.config.build (pkgs) (string | attrs)`: Evaluates an accelerator specification against `pkgs`.
+
+---
+
+## Use-Case Cookbooks & Examples
+
+### Cookbook 1: Pure-Nix Python Project with SIF & OCI Output
+
+Use `p8n.uv.mkProject` when you want a completely reproducible Python project driven by `uv.lock`. `nix develop` drops you straight into a pre-populated environment with zero `uv sync` step, and `nix build` produces both local venvs and HPC containers:
+
+```nix
+{
+  inputs = {
+    tue-p8n.url = "github:tue-p8n/nix";
+    nixpkgs.follows = "tue-p8n/nixpkgs";
+    flake-parts.follows = "tue-p8n/flake-parts";
+  };
+
+  outputs = inputs@{ flake-parts, tue-p8n, ... }:
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      imports = [ tue-p8n.flakeModule ];
+      systems = [ "x86_64-linux" ];
+
+      perSystem = { pkgs, p8n, ... }:
+        let
+          project = p8n.uv.mkProject {
+            name = "my-research";
+            workspaceRoot = ./.;
+            accelerator = "cuda12_9";
+          };
+        in
+        {
+          # Interactive shell (zero runtime sync)
+          devShells.default = project.shell;
+
+          # Virtual environment derivation
+          packages.default = project.venv;
+
+          # Layered OCI image: `nix build .#docker`
+          packages.docker = project.oci;
+
+          # Apptainer SIF container for HPC: `nix build .#sif`
+          packages.sif = project.sif;
+        };
+    };
+}
+```
+
+---
+
+### Cookbook 2: Interactive Fast Prototyping Shell
+
+Use `p8n.uv.mkShell` when you want a fast, dynamic development workflow where dependencies are managed interactively via `uv add` and `uv sync`:
+
+```nix
+perSystem = { pkgs, p8n, ... }: {
+  devShells.default = p8n.uv.mkShell {
+    name = "fast-experiment";
+    accelerator = "cuda12_9";
+    extraPackages = [
+      pkgs.just
+      pkgs.htop
+      pkgs.nvtopPackages.nvidia
+    ];
+    env = {
+      WANDB_PROJECT = "vision-research";
+    };
+    shellHook = ''
+      echo "Ready for experiments!"
+    '';
+  };
+};
+```
+
+---
+
+### Cookbook 3: Bare CUDA / C++ Development Shell
+
+Use `p8n.accelerator.mkShell` or `p8n.accelerator.mkFHS` when building standalone C++/CUDA tools without Python:
+
+```nix
+perSystem = { pkgs, p8n, ... }: {
+  # 1. Native Nix-LD shell with nvcc and CUDA toolchain
+  devShells.cuda = p8n.accelerator.mkShell {
+    accelerator = "cuda12_9";
+    extraPackages = [
+      pkgs.cmake
+      pkgs.ninja
+      pkgs.gdb
+    ];
+  };
+
+  # 2. FHS sandbox for traditional /usr/lib linking
+  devShells.cuda-fhs = (p8n.accelerator.mkFHS {
+    name = "cuda-fhs";
+    accelerator = "cuda12_9";
+    extraPackages = [ pkgs.cmake pkgs.ninja ];
+  }).env;
+};
+```
+
+---
+
+### Cookbook 4: Micromamba Conda Environment
+
+Use `p8n.mamba.mkFHS` when working with legacy Conda recipes or packages requiring Conda channels:
+
+```nix
+perSystem = { p8n, ... }: {
+  devShells.default = (p8n.mamba.mkFHS {
+    name = "conda-research";
+    file = ./environment.yaml;
+    accelerator = "cuda12_9";
+    profile = ''
+      export PYTHONUNBUFFERED=1
+    '';
+  }).env;
+};
+```
+
+---
+
+### Cookbook 5: HPC Cluster Deployment & SLURM Integration
+
+Deploying reproducible Nix builds to Snellius, ALCF, or any SLURM cluster:
+
+#### Step 1: Build the SIF container locally or in CI
+```bash
+nix build .#sif
+# Generates ./result, which is the self-contained .sif file
+```
+
+#### Step 2: Submit a SLURM batch script
+```bash
+#!/bin/bash
+#SBATCH --job-name=train-model
+#SBATCH --partition=gpu
+#SBATCH --gpus=1
+#SBATCH --time=04:00:00
+
+# Execute inside the Nix-built Apptainer image with host GPU drivers
+apptainer run --nv ./result train.py --epochs 100 --batch-size 64
+```
+
+---
+
+### Cookbook 6: Building SIF Containers from Curated Registry Images
+
+Package pinned upstream PyTorch images directly as Apptainer `.sif` files:
+
+```nix
+perSystem = { pkgs, p8n, ... }:
+let
+  ociTarball = pkgs.dockerTools.pullImage (
+    p8n.container.get "pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel"
+  );
+in
+{
+  packages.oci = ociTarball;
+  packages.sif = p8n.container.mkSIF {
+    name = "pytorch-cuda12_9";
+    ociImage = ociTarball;
+  };
+};
+```
+
+---
+
+### Cookbook 7: Advanced uv2nix Overrides (C++/CUDA Extensions)
+
+When a Python wheel requires custom C++ build tools, system dependencies, or cross-wheel linking:
+
+```nix
+perSystem = { pkgs, p8n, ... }:
+let
+  project = p8n.uv.mkProject {
+    name = "complex-pipeline";
+    workspaceRoot = ./.;
+    accelerator = "cuda12_9";
+    extraLibs = [ pkgs.libGL pkgs.glib ];
+    missingBuildSystems = {
+      flash-attn = [ "setuptools" "wheel" "ninja" "torch" ];
+    };
+    crossWheelLinkingPackages = [
+      "flash-attn"
+      "deformops"
+    ];
+    overrides = final: prev: {
+      deformops = prev.deformops.overrideAttrs (old: {
+        buildInputs = (old.buildInputs or [ ]) ++ [ pkgs.cudaPackages.cuda_cudart ];
+      });
+    };
+  };
+in
+{
+  devShells.default = project.shell;
+  packages.default = project.venv;
+  packages.sif = project.sif;
+};
+```
+
+---
+
+### Cookbook 8: Writing Academic Papers (LaTeX & Typst)
+
+Manage your research paper submissions alongside your code:
+
+```nix
+perSystem = { pkgs, p8n, ... }: {
+  # 1. Standard LaTeX paper compilation (modern templates)
+  packages.paper = p8n.latex.mkDocument {
+    name = "paper";
+    src = ./paper;
+    main = "main.tex";
+    shellEscape = true; # Required for minted / pygments syntax highlighting
+  };
+
+  # 2. Legacy document template (pinned to an older TeX Live release for compatibility)
+  packages.legacy-paper = p8n.latex.mkDocument {
+    name = "legacy-paper";
+    src = ./legacy-paper;
+    main = "main.tex";
+    texlive = "2023"; # Pins TeX Live 2023 baseline from tue-p8n automatically!
+  };
+
+  # 3. Typst paper compilation
+  packages.typst-paper = p8n.typst.mkDocument {
+    name = "typst-paper";
+    src = ./paper;
+    main = "paper.typ";
+    output = "paper.pdf";
+  };
+
+  # 4. Interactive LaTeX writing shell (pinned to TeX Live 2023)
+  devShells.latex = p8n.latex.mkShell {
+    texlive = "2023";
+  };
+
+  # 5. Interactive Typst writing shell with formatter and bibliography tools
+  devShells.typst = p8n.typst.mkShell { };
+};
+```
+
+---
+
+### Cookbook 9: Extending the Library via `p8n.extend`
+
+Add custom lab helpers or wrap default builders:
+
+```nix
+perSystem = { pkgs, p8n, ... }:
+let
+  customP8n = p8n.extend (final: prev: {
+    uv = prev.uv // {
+      # Opinionated wrapper pre-configured for lab GPU cluster
+      mkLabShell = args: prev.uv.mkShell (args // {
+        accelerator = "cuda12_9";
+        extraPackages = (args.extraPackages or [ ]) ++ [ pkgs.nvtopPackages.nvidia pkgs.just ];
+      });
+    };
+  });
+in
+{
+  devShells.default = customP8n.uv.mkLabShell {
+    name = "my-lab-shell";
+  };
+};
+```
+
+---
+
+## `flakeModule` Configuration Options
+
+When importing `tue-p8n.flakeModule`, the following options are available under `perSystem`:
+
+```nix
+perSystem = { ... }: {
+  # Enables automatic unfree and CUDA configuration on _module.args.pkgs
+  p8n.nixpkgs.manage = true;
+  p8n.nixpkgs.cuda.enable = true;
+
+  # Optionally specify compute capabilities (e.g. ["8.6" "8.9"])
+  p8n.nixpkgs.cuda.capabilities = [ "8.6" "8.9" ];
+};
+```

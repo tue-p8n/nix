@@ -1,7 +1,10 @@
 # Utilities for working with Typst documents.
-{ self, ... }:
+{
+  pkgs,
+  ...
+}:
 let
-  inherit (self.config) pkgs;
+  defaultPkgs = pkgs;
   # Helper: extracts argument names directly from a function signature and strips them from args
   stripCustomArgs =
     fn: args:
@@ -13,6 +16,7 @@ in
 rec {
   mkShell =
     {
+      pkgs ? defaultPkgs,
       packages ? (
         with pkgs;
         [
@@ -27,7 +31,6 @@ rec {
       ...
     }@args:
     let
-      # Automatically strips [ "pkgs" "packages" "extraPackages" "shellHook" "env" "passthru" ]
       passThroughAttrs = stripCustomArgs mkShell args;
     in
     pkgs.mkShell (
@@ -54,6 +57,7 @@ rec {
     {
       name,
       src,
+      pkgs ? defaultPkgs,
       main ? "main.typ",
       output ? "document.pdf",
       buildInputs ? [ ],
@@ -65,7 +69,6 @@ rec {
       ...
     }@args:
     let
-      # Automatically inspects mkDocument's signature and strips all top-level parameters
       passThroughAttrs = stripCustomArgs mkDocument args;
     in
     pkgs.stdenv.mkDerivation (

@@ -20,13 +20,11 @@
       ...
     }:
     flake-parts.lib.mkFlake { inherit inputs; } {
+      imports = [ tue-p8n.flakeModule ];
       systems = [ "x86_64-linux" ];
 
       perSystem =
-        { pkgs, ... }:
-        let
-          p8n = tue-p8n.lib pkgs;
-        in
+        { p8n, ... }:
         {
           devShells.default = p8n.latex.mkShell { };
 

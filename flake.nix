@@ -15,6 +15,10 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
+    # TeX Live baseline channels for legacy document templates
+    nixpkgs-24-05.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs-23-11.url = "github:NixOS/nixpkgs/nixos-23.11";
+
     # Flake framework
     flake-parts.url = "github:hercules-ci/flake-parts";
 
@@ -55,7 +59,6 @@
 
   outputs =
     inputs@{
-      self,
       flake-parts,
       ...
     }:
@@ -121,29 +124,26 @@
               shellHook = config.pre-commit.installationScript;
             };
 
-            mamba-py313cu129 = (p8n.withAccelerator "cuda12_9").mamba.mkShell {
-              name = "mamba-py313cu129";
-            };
-            cuda = (p8n.withAccelerator "cuda").uv.mkShell { name = "cuda"; };
-            latex = (p8n.withAccelerator "cpu").latex.mkShell { };
-            typst = (p8n.withAccelerator "cpu").typst.mkShell { };
+            cuda = p8n.accelerator.mkShell { name = "cuda"; accelerator = "cuda"; };
+            latex = p8n.latex.mkShell { };
+            typst = p8n.typst.mkShell { };
 
-            uv-cpu = (p8n.withAccelerator "cpu").uv.mkShell { };
-            uv-cuda12_6 = (p8n.withAccelerator "cuda12_6").uv.mkShell { };
-            uv-cuda13_0 = (p8n.withAccelerator "cuda13_0").uv.mkShell { };
-            uv-rocm = (p8n.withAccelerator "rocm").uv.mkShell { };
+            uv-cpu = p8n.uv.mkShell { accelerator = "cpu"; };
+            uv-cuda12_6 = p8n.uv.mkShell { accelerator = "cuda12_6"; };
+            uv-cuda13_0 = p8n.uv.mkShell { accelerator = "cuda13_0"; };
+            uv-rocm = p8n.uv.mkShell { accelerator = "rocm"; };
 
             mamba-fhs-py313cu128 =
-              ((p8n.withAccelerator "cuda12_8").mamba.mkFHS { name = "mamba-fhs-py313cu128"; }).env;
+              (p8n.mamba.mkFHS { name = "mamba-fhs-py313cu128"; accelerator = "cuda12_8"; }).env;
             mamba-fhs-py313cu129 =
-              ((p8n.withAccelerator "cuda12_9").mamba.mkFHS { name = "mamba-fhs-py313cu129"; }).env;
+              (p8n.mamba.mkFHS { name = "mamba-fhs-py313cu129"; accelerator = "cuda12_9"; }).env;
           };
 
           # Packages
           packages = {
             # Curated OCI containers
             oci-pytorch2_8_0-cuda12_9-cudnn9-devel = pkgs.dockerTools.pullImage (
-              self.lib.getContainer "pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel"
+              p8n.container.get "pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel"
             );
           };
 

@@ -1,10 +1,6 @@
-# uv/default.nix
 context@{ ... }:
-builtins.foldl' (acc: path: acc // (import path context)) { } [
-  ./mk-shell.nix
-  ./mk-fhs.nix
-  ./mk-project.nix
-]
-// {
-  hooks = import ./hooks.nix context;
-}
+(import ./mk-shell.nix context)
+// (import ./mk-fhs.nix context)
+// (import ./mk-project.nix context)
+// (import ./mk-oci.nix context)
+// (import ./hooks.nix context)

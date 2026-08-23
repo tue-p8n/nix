@@ -32,7 +32,7 @@ nix build
 Override `main` and `output` in `flake.nix`:
 
 ```nix
-lib.typst { inherit pkgs; }.mkDocument {
+p8n.typst.mkDocument {
   name = "my-paper";
   src = ./.;
   main = "paper.typ";

@@ -1,7 +1,4 @@
-{ self, ... }:
-let
-  config = self.config;
-in
+{ internal, ... }:
 rec {
   repoRootHook = ''
     REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || REPO_ROOT=$(pwd)
@@ -18,13 +15,14 @@ rec {
   '';
   accelActivationHook =
     {
+      config,
       nixglhost,
     }:
     ''
-      ${self.internal.exportEnv config.environment.variables}
+      ${internal.exportEnv config.environment.variables}
       ${repoRootHook}
 
-      ${self.internal.hostGpuHook nixglhost}
+      ${internal.hostGpuHook nixglhost}
       ${config.shellHook}
     '';
 }

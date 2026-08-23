@@ -87,7 +87,12 @@ let
         self = {
           inherit cudaPackages;
           rocmPackages = mockRocmPackages;
+          mkShell = args: { inherit (args) passthru; };
+          cacert = { outPath = "/nix/store/mock-cacert"; };
           stdenv = {
+            hostPlatform = {
+              system = "x86_64-linux";
+            };
             outPath = "/nix/store/mock-default-stdenv";
             cc = {
               cc = {
@@ -119,7 +124,7 @@ let
 
   accelerators =
     accel:
-    (import ../lib/accelerators {
+    (import ../lib/config {
       inherit lib;
     }).build mockPkgs accel;
 
@@ -179,7 +184,163 @@ let
       expr = (accelerators "cuda12_6").name;
       expected = "cuda126";
     };
+
+    # Config module
+    testConfigResolveCuda = {
+      expr = (p8nInstance.config.resolve "cuda12_9").cuda.version;
+      expected = "12.9";
+    };
+    testConfigResolveRocm = {
+      expr = (p8nInstance.config.resolve "rocm").acceleration;
+      expected = "rocm";
+    };
+    testConfigResolveCpu = {
+      expr = (p8nInstance.config.resolve "cpu").acceleration;
+      expected = "none";
+    };
+
+    # Accelerator module builders
+    testAcceleratorMkShellExists = {
+      expr = builtins.isFunction p8nInstance.accelerator.mkShell;
+      expected = true;
+    };
+    testAcceleratorMkFHSExists = {
+      expr = builtins.isFunction p8nInstance.accelerator.mkFHS;
+      expected = true;
+    };
+
+    # UV module builders
+    testUvMkShellExists = {
+      expr = builtins.isFunction p8nInstance.uv.mkShell;
+      expected = true;
+    };
+    testUvMkFHSExists = {
+      expr = builtins.isFunction p8nInstance.uv.mkFHS;
+      expected = true;
+    };
+    testUvMkProjectExists = {
+      expr = builtins.isFunction p8nInstance.uv.mkProject;
+      expected = true;
+    };
+    testUvMkOCIExists = {
+      expr = builtins.isFunction p8nInstance.uv.mkOCI;
+      expected = true;
+    };
+    testUvMkDockerAliasExists = {
+      expr = builtins.isFunction p8nInstance.uv.mkDocker;
+      expected = true;
+    };
+
+    # Mamba module builders
+    testMambaMkFHSExists = {
+      expr = builtins.isFunction p8nInstance.mamba.mkFHS;
+      expected = true;
+    };
+
+    # Container module
+    testContainerGetValid = {
+      expr = (p8nInstance.container.get "pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel").imageName;
+      expected = "pytorch/pytorch";
+    };
+    testContainerGetTag = {
+      expr = (p8nInstance.container.get "pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel").finalImageTag;
+      expected = "2.8.0-cuda12.9-cudnn9-devel";
+    };
+    testContainerGetMissingThrows = {
+      expr = (builtins.tryEval (p8nInstance.container.get "nonexistent")).success;
+      expected = false;
+    };
+    testContainerMkSIFExists = {
+      expr = builtins.isFunction p8nInstance.container.mkSIF;
+      expected = true;
+    };
+    testContainerMkApptainerAliasExists = {
+      expr = builtins.isFunction p8nInstance.container.mkApptainer;
+      expected = true;
+    };
+
+    # Document module builders
+    testLatexMkShellExists = {
+      expr = builtins.isFunction p8nInstance.latex.mkShell;
+      expected = true;
+    };
+    testLatexMkDocumentExists = {
+      expr = builtins.isFunction p8nInstance.latex.mkDocument;
+      expected = true;
+    };
+    testLatexVersionDefault = {
+      expr = (p8nInstance.latex.mkShell { }).passthru.tex.outPath;
+      expected = "/nix/store/mock-tex-default";
+    };
+    testLatexVersion2024 = {
+      expr = (p8nInstance.latex.mkShell { texlive = "2024"; }).passthru.tex.outPath;
+      expected = "/nix/store/mock-tex-2024";
+    };
+    testLatexVersion2023 = {
+      expr = (p8nInstance.latex.mkShell { version = "2023"; }).passthru.tex.outPath;
+      expected = "/nix/store/mock-tex-2023";
+    };
+    testLatexInvalidVersionThrows = {
+      expr = (builtins.tryEval (p8nInstance.latex.mkShell { texlive = "1999"; }).passthru.tex).success;
+      expected = false;
+    };
+    testTypstMkShellExists = {
+      expr = builtins.isFunction p8nInstance.typst.mkShell;
+      expected = true;
+    };
+    testTypstMkDocumentExists = {
+      expr = builtins.isFunction p8nInstance.typst.mkDocument;
+      expected = true;
+    };
+
+    # Extend mechanism
+    testP8nExtendTopLevel = {
+      expr = extendedP8n.customValue;
+      expected = "hello-p8n";
+    };
+    testP8nExtendSubmodule = {
+      expr = extendedP8n.uv.customTool;
+      expected = "custom-uv-tool";
+    };
+    testP8nExtendPreservesExisting = {
+      expr = builtins.isFunction extendedP8n.uv.mkShell;
+      expected = true;
+    };
   };
+
+  mockTexlive = name: {
+    combine = _: { outPath = "/nix/store/mock-tex-${name}"; };
+    scheme-full = { };
+  };
+
+  mockNixpkgs = name: {
+    legacyPackages.${mockPkgs.stdenv.hostPlatform.system} = {
+      texlive = mockTexlive name;
+    };
+  };
+
+  p8nInstance =
+    (import ../lib {
+      inherit lib;
+      inputs = {
+        nixpkgs-24-05 = mockNixpkgs "2024";
+        nixpkgs-23-11 = mockNixpkgs "2023";
+      };
+    }) (
+      mockPkgs
+      // {
+        texlive = mockTexlive "default";
+      }
+    );
+
+  extendedP8n = p8nInstance.extend (
+    _final: prev: {
+      customValue = "hello-p8n";
+      uv = prev.uv // {
+        customTool = "custom-uv-tool";
+      };
+    }
+  );
 
   runTests = lib.runTests tests;
 in

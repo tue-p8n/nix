@@ -23,29 +23,27 @@
       imports = [ tue-p8n.flakeModule ];
       systems = [ "x86_64-linux" ];
 
-      perSystem = { system, ... }: {
-        # CUDA support requires unfree packages and forward-compat.
-        _module.args.pkgs = import inputs.nixpkgs {
-          inherit system;
-          config = {
-            cudaForwardCompat = true;
-            cudaSupport = true;
-            allowUnfree = true;
-          };
-          overlays = [ ];
-        };
+      perSystem =
+        {
+          p8n,
+          ...
+        }:
+        {
+          p8n.nixpkgs.manage = true;
+          p8n.nixpkgs.cuda.enable = true;
 
-        tue-p8n.uv.uv2nix.default = {
-          name = "my-research-project";
-          workspaceRoot = ./.;
-          accelerator = "cuda";
+          # Interactive UV shell (run `uv sync` inside)
+          devShells.default = p8n.uv.mkShell {
+            name = "my-research-project";
+            accelerator = "cuda";
+          };
+
+          # Pure Nix virtual environment via uv2nix
+          packages.default = (p8n.uv.mkProject {
+            name = "my-research-project";
+            workspaceRoot = ./.;
+            accelerator = "cuda";
+          }).venv;
         };
-        # Alternatively, use an FHS-based shell, with is more compatible with some
-        # Python packages.
-        # tue-p8n.uv.shells.default = {
-        #   name = "my-research-project";
-        #   accelerator = "cuda";
-        # };
-      };
     };
 }

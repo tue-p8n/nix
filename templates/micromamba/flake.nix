@@ -20,39 +20,24 @@
       ...
     }:
     flake-parts.lib.mkFlake { inherit inputs; } {
+      imports = [ tue-p8n.flakeModule ];
       systems = [ "x86_64-linux" ];
 
       perSystem =
         {
-          system,
-          pkgs,
+          p8n,
           ...
         }:
-        let
-          p8n = (tue-p8n.lib pkgs).withAccelerator "cuda";
-        in
         {
-          _module.args.pkgs = import inputs.nixpkgs {
-            inherit system;
-            config = {
-              cudaForwardCompat = true;
-              cudaSupport = true;
-              allowUnfree = true;
-            };
-            overlays = [ ];
-          };
+          p8n.nixpkgs.manage = true;
+          p8n.nixpkgs.cuda.enable = true;
 
-          # Native shell (requires nix-ld on NixOS).
-          devShells.default = p8n.mamba.mkShell {
-            name = "my-micromamba-env";
-            file = ./environment.yaml;
-          };
-
-          # FHS shell (maximum compatibility for complex CUDA build steps).
-          devShells.fhs =
+          # FHS shell (reliable compatibility for complex CUDA environments)
+          devShells.default =
             (p8n.mamba.mkFHS {
               name = "my-micromamba-fhs";
               file = ./environment.yaml;
+              accelerator = "cuda";
             }).env;
         };
     };
