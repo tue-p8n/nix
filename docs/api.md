@@ -135,6 +135,8 @@ FHS container flavor for Python tooling requiring full FHS filesystem emulation.
 #### `p8n.uv.mkProject { name, workspaceRoot, accelerator?, python?, extras?, overrides?, packages?, extraPackages?, env?, shellHook?, missingBuildSystems?, crossWheelLinkingPackages?, extraLibs? }`
 Builds the project's **entire** Python virtual environment hermetically as Nix derivations via `uv2nix` (zero runtime `uv sync`). Requires `pyproject.toml` and a committed `uv.lock`.
 
+- **`extras`** (`[string] | null`, default `null`): Python extras to enable. When `null` (default), automatically derives the backend extra from `accelerator` (e.g. `["cu129"]`, `["rocm"]`, `["cpu"]`). Specify explicitly (e.g. `extras = [ "cu129" ]` or `extras = [ "cu129" "dev" ]`) when selecting specific wheels or multiple extras. Set `extras = [ ]` to disable all extra injection.
+
 Returns `{ shell, venv, oci, sif, pythonSet, workspace }`:
 - `shell`: The interactive development shell derivation (`nix develop`).
 - `venv`: The fully built virtual environment derivation (`nix build`).
