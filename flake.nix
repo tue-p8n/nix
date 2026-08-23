@@ -62,11 +62,18 @@
       flake-parts,
       ...
     }:
+    let
+      p8nLib = import ./lib {
+        inherit inputs;
+        lib = inputs.nixpkgs.lib;
+      };
+      p8nFlakeModule = import ./flake-module.nix { inherit p8nLib; };
+    in
     flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
         inputs.git-hooks.flakeModule
         inputs.treefmt.flakeModule
-        ./flake-module.nix
+        p8nFlakeModule
       ];
 
       systems = [
@@ -74,9 +81,9 @@
       ];
 
       flake = {
-        lib = import ./lib { inherit inputs; lib = inputs.nixpkgs.lib; };
+        lib = p8nLib;
 
-        flakeModule = import ./flake-module.nix;
+        flakeModule = p8nFlakeModule;
 
         templates = {
           uv = {

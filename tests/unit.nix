@@ -306,6 +306,34 @@ let
       expr = builtins.isFunction extendedP8n.uv.mkShell;
       expected = true;
     };
+
+    # Downstream flake module consumption (simulates downstream flake without tue-p8n internal inputs)
+    testDownstreamFlakeModuleResolution = {
+      expr =
+        let
+          downstreamInputs = {
+            nixpkgs = mockPkgs;
+            self = { };
+          };
+          module = (import ../flake-module.nix { p8nLib = (_pkgs: p8nInstance); });
+          evaluated = module {
+            inputs = downstreamInputs;
+            inherit lib;
+            flake-parts-lib = {
+              mkPerSystemOption = f: {
+                options = { };
+                config = (f {
+                  config = { p8n = { nixpkgs = { manage = false; cuda = { enable = false; capabilities = null; }; }; }; };
+                  pkgs = mockPkgs;
+                  system = "x86_64-linux";
+                }).config;
+              };
+            };
+          };
+        in
+        builtins.isFunction evaluated.options.perSystem.config._module.args.p8n.uv.mkProject;
+      expected = true;
+    };
   };
 
   mockTexlive = name: {
