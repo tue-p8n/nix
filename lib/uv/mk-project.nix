@@ -147,11 +147,42 @@ rec {
       # UV workspace
       workspace = uv2nix.lib.workspace.loadWorkspace { inherit workspaceRoot; };
 
+      # Validate package name and requested extras
+      validateWorkspace =
+        let
+          knownPackages = builtins.attrNames (workspace.deps.optionals or { });
+          packageFound = builtins.elem name knownPackages;
+          availableExtras = if packageFound then (workspace.deps.optionals.${name} or [ ]) else [ ];
+          missingExtras = builtins.filter (ext: !builtins.elem ext availableExtras) resolvedExtras;
+          accelName = if builtins.isString accelerator then accelerator else accelConfig.name;
+        in
+        if !packageFound && knownPackages != [ ] then
+          throw ''
+            p8n.uv.mkProject: package "${name}" was not found in the uv workspace at ${toString workspaceRoot}.
+            Available workspace packages: ${lib.concatStringsSep ", " knownPackages}.
+            Ensure `name = "${name}"` in flake.nix matches the `name` in pyproject.toml and run `uv lock`.
+          ''
+        else if packageFound && availableExtras != [ ] && missingExtras != [ ] then
+          throw ''
+            p8n.uv.mkProject: requested extra(s) [ ${lib.concatStringsSep ", " (map (e: "\"${e}\"") missingExtras)} ] not found in pyproject.toml [project.optional-dependencies] for package "${name}".
+            Available extras for "${name}": ${lib.concatStringsSep ", " (map (e: "\"${e}\"") availableExtras)}.
+
+            To fix this:
+            1. If using accelerator = "${accelName}", declare the matching extra in pyproject.toml under [project.optional-dependencies] (e.g. ${lib.concatStringsSep ", " (map (e: "${e} = [ ... ]") missingExtras)})
+            2. If using conflicting wheel backends (like CUDA), also add them to [tool.uv.conflicts] and [tool.uv.sources] in pyproject.toml
+            3. Run `uv lock` to update uv.lock
+            4. Alternatively, explicitly pass `extras = [ ... ]` in mkProject to select an available extra.
+          ''
+        else
+          true;
+
       # PyProject dependencies
-      pyprojectDeps = lib.zipAttrsWith (_: lib.concatLists) [
-        workspace.deps.groups
-        { ${name} = resolvedExtras; }
-      ];
+      pyprojectDeps =
+        assert validateWorkspace;
+        lib.zipAttrsWith (_: lib.concatLists) [
+          workspace.deps.groups
+          { ${name} = resolvedExtras; }
+        ];
 
       # UV overlay
       uvOverlay = workspace.mkPyprojectOverlay {
