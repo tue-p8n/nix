@@ -1,8 +1,7 @@
 {
   config,
   lib,
-  nixpkgs,
-  system,
+  pkgs',
   ...
 }:
 {
@@ -67,14 +66,8 @@
     # Override module `pkgs` argument according to the configured `pkgs` option.
     _module.args.pkgs = config.pkgs;
 
-    # Default pkgs: plain nixpkgs import for cpu/none.
-    # CUDA and ROCm modules override this with their own re-import.
-    pkgs = lib.mkDefault (
-      nixpkgs {
-        inherit system;
-        overlays = [ ];
-      }
-    );
+    # Defaults.
+    pkgs = lib.mkDefault pkgs';
     stdenv = lib.mkDefault config.pkgs.stdenv;
 
     # Select the accelerator module based on the `acceleration` option.

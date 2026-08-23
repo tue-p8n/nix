@@ -1,6 +1,5 @@
 {
   lib,
-  nixpkgs,
 }:
 let
   # Resolve an accelerator string to a config attrset.
@@ -56,13 +55,12 @@ let
       makeCallable baseConfig;
 
   # Evaluate the accelerator module.
-  # `pkgs` is derived inside the module from `nixpkgs` + `system` — not passed in.
   evaluate =
-    system: config:
+    pkgs: config:
     let
       eval = lib.evalModules {
         specialArgs = {
-          inherit system nixpkgs;
+          pkgs' = pkgs;
         };
         modules = [
           ./modules
@@ -77,7 +75,7 @@ let
       eval;
 
   # A helper that evaluates a config, resolving the `args` to an attrset if needed.
-  build = system: arg: (evaluate system (if builtins.isAttrs arg then arg else resolve arg)).config;
+  build = pkgs: arg: (evaluate pkgs (if builtins.isAttrs arg then arg else resolve arg)).config;
 in
 {
   inherit resolve build;

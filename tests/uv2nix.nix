@@ -10,7 +10,7 @@
   lib,
 }: let
   venv =
-    ((lib pkgs.stdenv.hostPlatform.system).uv.mkProject {
+    ((lib pkgs).uv.mkProject {
       name = "fixture";
       workspaceRoot = ./fixtures/uv2nix-fixture;
     })

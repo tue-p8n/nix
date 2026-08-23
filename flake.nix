@@ -103,6 +103,9 @@
           ...
         }:
         {
+          p8n.nixpkgs.manage = true;
+          p8n.nixpkgs.cuda.enable = true;
+
           # Development shells
           devShells = {
             default = pkgs.mkShell {
