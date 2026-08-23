@@ -29,6 +29,7 @@ rec {
       accelerator ? "cpu",
       pkgs ? defaultPkgs,
       python ? null,
+      torchExtra ? null,
       extras ? [ ],
       overrides ? (_final: prev: prev),
       packages ? (_ps: [ ]),
@@ -53,8 +54,19 @@ rec {
       tag = accelConfig.name;
 
       # Select torch extra backend (ROCm special cased)
-      torchExtra =
-        if lib.hasPrefix "rocm" tag then "rocm" else accelConfig.environment.variables.UV_TORCH_BACKEND or "cpu";
+      resolvedTorchExtra =
+        if torchExtra != null then
+          torchExtra
+        else if lib.hasPrefix "rocm" tag then
+          "rocm"
+        else
+          accelConfig.environment.variables.UV_TORCH_BACKEND or "cpu";
+
+      torchExtrasList =
+        if resolvedTorchExtra == null || resolvedTorchExtra == "" || resolvedTorchExtra == false then
+          [ ]
+        else
+          [ resolvedTorchExtra ];
 
       # Missing build systems. Default configuration includes some popular packages
       # as a default.
@@ -139,7 +151,7 @@ rec {
       # PyProject dependencies
       pyprojectDeps = lib.zipAttrsWith (_: lib.concatLists) [
         workspace.deps.groups
-        { ${name} = [ torchExtra ] ++ extras; }
+        { ${name} = torchExtrasList ++ extras; }
       ];
 
       # UV overlay
