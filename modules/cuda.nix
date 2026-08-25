@@ -6,6 +6,16 @@
   flake-parts-lib,
   ...
 }:
+let
+  tueP8n = inputs.tue-p8n or inputs.self or { };
+  nixpkgs =
+    if inputs ? nixpkgs then
+      inputs.nixpkgs
+    else if tueP8n ? inputs && tueP8n.inputs ? nixpkgs then
+      tueP8n.inputs.nixpkgs
+    else
+      throw "modules/cuda.nix: could not find nixpkgs in inputs or tue-p8n.inputs";
+in
 {
   imports = [ ./default.nix ];
 
@@ -35,7 +45,7 @@
       ...
     }:
     {
-      _module.args.pkgs = import inputs.nixpkgs {
+      _module.args.pkgs = import nixpkgs {
         inherit system;
         config =
           {

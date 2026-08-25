@@ -5,10 +5,29 @@
   lib,
   ...
 }:
+let
+  tueP8n = inputs.tue-p8n or inputs.self or { };
+
+  treefmtModule =
+    if inputs ? treefmt then
+      inputs.treefmt.flakeModule
+    else if tueP8n ? inputs && tueP8n.inputs ? treefmt then
+      tueP8n.inputs.treefmt.flakeModule
+    else
+      throw "modules/formatting.nix: could not find treefmt in inputs or tue-p8n.inputs";
+
+  gitHooksModule =
+    if inputs ? git-hooks then
+      inputs.git-hooks.flakeModule
+    else if tueP8n ? inputs && tueP8n.inputs ? git-hooks then
+      tueP8n.inputs.git-hooks.flakeModule
+    else
+      throw "modules/formatting.nix: could not find git-hooks in inputs or tue-p8n.inputs";
+in
 {
   imports = [
-    inputs.git-hooks.flakeModule
-    inputs.treefmt.flakeModule
+    gitHooksModule
+    treefmtModule
   ];
 
   perSystem =
