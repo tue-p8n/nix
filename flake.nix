@@ -119,24 +119,42 @@
         {
           # Development shells
           devShells = {
+            # Shell for working on this project
             default = p8n.accelerator.mkShell {
               name = "tue-p8n";
               packages = [ pkgs.cacert ];
             };
 
-            cuda = p8n.accelerator.mkShell { name = "cuda"; accelerator = "cuda"; };
+            # LaTeX and Typst shells for academic writing
             latex = p8n.latex.mkShell { };
             typst = p8n.typst.mkShell { };
 
+            # CUDA shells
+            cuda = p8n.accelerator.mkShell {
+              name = "cuda";
+              accelerator = "cuda";
+            };
+
+            # UV shells
             uv-cpu = p8n.uv.mkShell { accelerator = "cpu"; };
+
+            uv-cuda = p8n.uv.mkShell { accelerator = "cuda12_6"; };
             uv-cuda12_6 = p8n.uv.mkShell { accelerator = "cuda12_6"; };
             uv-cuda13_0 = p8n.uv.mkShell { accelerator = "cuda13_0"; };
+
             uv-rocm = p8n.uv.mkShell { accelerator = "rocm"; };
 
+            # Mamba shells
             mamba-fhs-py313cu128 =
-              (p8n.mamba.mkFHS { name = "mamba-fhs-py313cu128"; accelerator = "cuda12_8"; }).env;
+              (p8n.mamba.mkFHS {
+                name = "mamba-fhs-py313cu128";
+                accelerator = "cuda12_8";
+              }).env;
             mamba-fhs-py313cu129 =
-              (p8n.mamba.mkFHS { name = "mamba-fhs-py313cu129"; accelerator = "cuda12_9"; }).env;
+              (p8n.mamba.mkFHS {
+                name = "mamba-fhs-py313cu129";
+                accelerator = "cuda12_9";
+              }).env;
           };
 
           # Packages

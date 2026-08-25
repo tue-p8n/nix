@@ -36,6 +36,18 @@ let
     "libglvnd"
     "libxkbcommon"
     "glib"
+    "libx11"
+    "libxext"
+    "libxrender"
+    "libsm"
+    "libice"
+    "libxrandr"
+    "libxcursor"
+    "libxi"
+    "libxinerama"
+    "libxfixes"
+    "libxxf86vm"
+    "libxcb"
     "zlib"
     "bzip2"
     "xz"
@@ -56,21 +68,6 @@ let
     "fontconfig"
     "harfbuzz"
     "ffmpeg"
-  ];
-
-  xorgLibs = [
-    "libX11"
-    "libXext"
-    "libXrender"
-    "libSM"
-    "libICE"
-    "libXrandr"
-    "libXcursor"
-    "libXi"
-    "libXinerama"
-    "libXfixes"
-    "libXxf86vm"
-    "libxcb"
   ];
 
   mkMockLib = n: { outPath = "/nix/store/mock-${n}"; };
@@ -106,7 +103,6 @@ let
               };
             };
           };
-          xorg = lib.genAttrs xorgLibs mkMockLib;
         }
         // (lib.genAttrs rootLibs mkMockLib)
         // (lib.mapAttrs'

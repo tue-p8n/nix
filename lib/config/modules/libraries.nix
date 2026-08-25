@@ -48,18 +48,18 @@ in
         libglvnd
         libxkbcommon
         glib
-        xorg.libX11
-        xorg.libXext
-        xorg.libXrender
-        xorg.libSM
-        xorg.libICE
-        xorg.libXrandr
-        xorg.libXcursor
-        xorg.libXi
-        xorg.libXinerama
-        xorg.libXfixes
-        xorg.libXxf86vm
-        xorg.libxcb
+        libx11
+        libxext
+        libxrender
+        libsm
+        libice
+        libxrandr
+        libxcursor
+        libxi
+        libxinerama
+        libxfixes
+        libxxf86vm
+        libxcb
         dbus
       ];
     })

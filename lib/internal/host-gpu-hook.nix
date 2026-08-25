@@ -15,6 +15,7 @@ nixglhost: ''
   if [ -f "/etc/NIXOS" ]; then
     if [ -d "/run/opengl-driver/lib" ]; then
       export LD_LIBRARY_PATH="/run/opengl-driver/lib:$LD_LIBRARY_PATH"
+      export NIX_LD_LIBRARY_PATH="/run/opengl-driver/lib:$NIX_LD_LIBRARY_PATH"
       export TRITON_LIBCUDA_PATH="/run/opengl-driver/lib"
     fi
   ${
@@ -23,6 +24,7 @@ nixglhost: ''
       else
         if host_libs=$(${nixglhost}/bin/nixglhost -p 2>/dev/null); then
           export LD_LIBRARY_PATH="$host_libs:$LD_LIBRARY_PATH"
+          export NIX_LD_LIBRARY_PATH="$host_libs:$NIX_LD_LIBRARY_PATH"
         fi
     ''
     else ''
