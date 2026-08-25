@@ -82,5 +82,16 @@ in
           };
         };
       };
+
+      # Provide a fallback default devShell with pre-commit if no shell is defined
+      devShells.default = lib.mkDefault (
+        pkgs.mkShell {
+          name = "formatting-devshell";
+          packages = [
+            config.pre-commit.settings.package
+          ] ++ config.pre-commit.settings.enabledPackages;
+          shellHook = config.pre-commit.installationScript;
+        }
+      );
     };
 }

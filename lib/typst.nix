@@ -1,6 +1,7 @@
 # Utilities for working with Typst documents.
 {
   pkgs,
+  internal,
   ...
 }:
 let
@@ -26,6 +27,7 @@ rec {
       ),
       extraPackages ? [ ],
       shellHook ? "",
+      preCommit ? (args.self.preCommit or null),
       env ? { },
       passthru ? { },
       ...
@@ -40,10 +42,15 @@ rec {
           TYPST_ENV_ACTIVE = "1";
         };
 
-        packages = [ pkgs.typst ] ++ packages ++ extraPackages;
+        packages =
+          [ pkgs.typst ]
+          ++ packages
+          ++ extraPackages
+          ++ (internal.preCommit.packages preCommit);
 
         shellHook = ''
           echo " >>> Typst environment activated: $(${pkgs.typst}/bin/typst --version)"
+          ${internal.preCommit.hook preCommit}
           ${shellHook}
         '';
 

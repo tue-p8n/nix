@@ -88,8 +88,11 @@ let
         self = {
           inherit cudaPackages;
           rocmPackages = mockRocmPackages;
-          mkShell = args: { inherit (args) passthru; };
           cacert = { outPath = "/nix/store/mock-cacert"; };
+          mkShell = {
+            __functor = _self: args: { passthru = args.passthru or { }; };
+            override = _: (args: { passthru = args.passthru or { }; });
+          };
           stdenv = {
             hostPlatform = {
               system = "x86_64-linux";
@@ -488,6 +491,44 @@ let
           module = import ../modules/formatting.nix;
         in
         builtins.isFunction module;
+      expected = true;
+    };
+
+    testPreCommitInjectionInUvShell = {
+      expr =
+        let
+          mockPreCommit = {
+            settings = {
+              package = { outPath = "/nix/store/mock-prek"; };
+              enabledPackages = [ { outPath = "/nix/store/mock-treefmt"; } ];
+            };
+            installationScript = "echo 'mock-install-hook'";
+          };
+          p8nWithPreCommit = p8nInstance.extend (_final: _prev: {
+            preCommit = mockPreCommit;
+          });
+          shell = p8nWithPreCommit.uv.mkShell { };
+        in
+        builtins.isAttrs shell;
+      expected = true;
+    };
+
+    testPreCommitInjectionInAcceleratorShell = {
+      expr =
+        let
+          mockPreCommit = {
+            settings = {
+              package = { outPath = "/nix/store/mock-prek"; };
+              enabledPackages = [ { outPath = "/nix/store/mock-treefmt"; } ];
+            };
+            installationScript = "echo 'mock-install-hook'";
+          };
+          p8nWithPreCommit = p8nInstance.extend (_final: _prev: {
+            preCommit = mockPreCommit;
+          });
+          shell = p8nWithPreCommit.accelerator.mkShell { };
+        in
+        builtins.isAttrs shell;
       expected = true;
     };
   };

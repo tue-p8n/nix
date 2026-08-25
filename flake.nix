@@ -112,7 +112,6 @@
 
       perSystem =
         {
-          config,
           pkgs,
           p8n,
           ...
@@ -120,17 +119,9 @@
         {
           # Development shells
           devShells = {
-            default = pkgs.mkShell {
+            default = p8n.accelerator.mkShell {
               name = "tue-p8n";
-              packages =
-                with pkgs;
-                [
-                  cacert
-                  config.pre-commit.settings.package
-                ]
-                ++ config.pre-commit.settings.enabledPackages;
-              env = { };
-              shellHook = config.pre-commit.installationScript;
+              packages = [ pkgs.cacert ];
             };
 
             cuda = p8n.accelerator.mkShell { name = "cuda"; accelerator = "cuda"; };

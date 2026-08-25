@@ -23,6 +23,7 @@ rec {
       extraPackages ? (_ps: [ ]),
       env ? { },
       shellHook ? "",
+      preCommit ? (args.self.preCommit or null),
       passthru ? { },
       ...
     }@args:
@@ -48,7 +49,8 @@ rec {
           accelConfig.packages
           ++ (if nixglhost != null then [ nixglhost ] else [ ])
           ++ (resolvePkgs packages)
-          ++ (resolvePkgs extraPackages);
+          ++ (resolvePkgs extraPackages)
+          ++ (internal.preCommit.packages preCommit);
 
         env = accelConfig.environment.variables // env;
 
@@ -63,6 +65,7 @@ rec {
           ${accelConfig.shellHook}
 
           echo " >>> Accelerator shell activated [${accelConfig.name}]"
+          ${internal.preCommit.hook preCommit}
           ${shellHook}
         '';
 

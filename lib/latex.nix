@@ -2,6 +2,7 @@
 {
   inputs ? { },
   pkgs,
+  internal,
   ...
 }:
 let
@@ -54,6 +55,7 @@ rec {
       packages ? (with pkgs; [ cacert ]),
       extraPackages ? [ ],
       shellHook ? "",
+      preCommit ? (args.self.preCommit or null),
       env ? { },
       passthru ? { },
       ...
@@ -70,10 +72,15 @@ rec {
           LATEX_ENV_ACTIVE = "1";
         };
 
-        packages = [ tex ] ++ packages ++ extraPackages;
+        packages =
+          [ tex ]
+          ++ packages
+          ++ extraPackages
+          ++ (internal.preCommit.packages preCommit);
 
         shellHook = ''
           echo " >>> LaTeX environment activated"
+          ${internal.preCommit.hook preCommit}
           ${shellHook}
         '';
 

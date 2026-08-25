@@ -25,13 +25,19 @@ let
     {
       options.perSystem = flake-parts-lib.mkPerSystemOption (
         {
+          config,
           pkgs,
           ...
         }:
         {
           config = {
             # Expose the library per-system bound to the current packages.
-            _module.args.p8n = p8n-lib pkgs;
+            # Automatically inherits config.pre-commit if formatting module is imported.
+            _module.args.p8n = (p8n-lib pkgs).extend (
+              _final: _prev: {
+                preCommit = config.pre-commit or null;
+              }
+            );
           };
         }
       );
