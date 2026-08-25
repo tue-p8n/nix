@@ -79,10 +79,9 @@ rec {
             export UV_PROJECT_ENVIRONMENT="$REPO_ROOT/.venvs/${resolvedName}"
             export VIRTUAL_ENV="$UV_PROJECT_ENVIRONMENT"
 
-            # Set after the activation hook, which is what defines REPO_ROOT.
-            # Keyed by shell name so distinct shells / accelerators don't
-            # overwrite each other's JIT-compiled extensions.
-            export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${resolvedName}}"
+            # Colocate PyTorch JIT extension build artifacts inside the virtual
+            # environment so deleting the venv automatically cleans up cached extensions.
+            export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.venvs/${resolvedName}/torch_extensions}"
 
             echo " >>> UV FHS environment activated [${accelConfig.name}]"
             ${profile}
