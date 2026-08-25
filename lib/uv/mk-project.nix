@@ -76,8 +76,14 @@ rec {
       overrideMissingBuildSystems =
         let
           default = {
-            antlr4-python3-runtime = [ "setuptools" ];
-            deformops = [ "setuptools" ];
+            antlr4-python3-runtime = [
+              "setuptools"
+              "wheel"
+            ];
+            deformops = [
+              "setuptools"
+              "wheel"
+            ];
             semantic-version = [
               "setuptools"
               "wheel"
@@ -108,14 +114,16 @@ rec {
                   (old.nativeBuildInputs or [ ])
                   ++ (final.resolveBuildSystem (pkgs'.lib.genAttrs buildSystems (_: [ ])));
               })
-            ) (default // missingBuildSystems);
+            ) (lib.filterAttrs (pkgName: _: prev ? ${pkgName}) (default // missingBuildSystems));
 
           # Default set of special cases
-          overrideSpecial = _: prev: {
-            numba = prev.numba.overrideAttrs (old: {
-              buildInputs = (old.buildInputs or [ ]) ++ [ pkgs'.tbb ];
-            });
-          };
+          overrideSpecial =
+            _: prev:
+            lib.optionalAttrs (prev ? numba) {
+              numba = prev.numba.overrideAttrs (old: {
+                buildInputs = (old.buildInputs or [ ]) ++ [ pkgs'.tbb ];
+              });
+            };
         in
         final: prev: (overrideResolved final prev) // (overrideSpecial final prev);
 
