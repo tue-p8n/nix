@@ -67,7 +67,6 @@ rec {
             ${internal.hostGpuHook nixglhost}
             ${accelConfig.shellHook}
 
-            export UV_LINK_MODE=copy
             export UV_NO_SYNC=1
             export UV_LOCKED=1
             export UV_PYTHON_PREFERENCE=only-managed

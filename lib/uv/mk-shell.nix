@@ -64,7 +64,6 @@ rec {
         env =
           accelConfig.environment.variables
           // {
-            UV_LINK_MODE = "copy";
             UV_NO_SYNC = "1";
             UV_LOCKED = "1";
             UV_PYTHON_PREFERENCE = "only-managed";
