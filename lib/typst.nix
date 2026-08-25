@@ -145,8 +145,8 @@ rec {
     {
       type = "app";
       program = "${script}/bin/${name}";
-    }
-    // script;
+      meta = script.meta or { };
+    };
 
   readProject =
     args:
