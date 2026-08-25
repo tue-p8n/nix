@@ -64,7 +64,7 @@ jobs:
           # list. A name left here after it leaves that step drops the check
           # from both workflows, so keep the two in step.
           COVERED_BY_CI: >-
-            ["unit","flake-module","uv2nix","treefmt","pre-commit",
+            ["unit","uv2nix","treefmt","pre-commit",
              "test-uv","test-template","shell-default","shell-uv-cpu"]
         run: |
           # `pipefail` matters here: without it a failed `nix eval` leaves jq

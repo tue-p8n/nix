@@ -67,7 +67,6 @@ jobs:
         run: |
           nix build -L --keep-going \
             .#checks.x86_64-linux.unit \
-            .#checks.x86_64-linux.flake-module \
             .#checks.x86_64-linux.uv2nix \
             .#checks.x86_64-linux.treefmt \
             .#checks.x86_64-linux.pre-commit \

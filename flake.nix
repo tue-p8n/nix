@@ -90,13 +90,6 @@
           formatting = ./modules/formatting.nix;
         };
 
-        flakeModule = {
-          __functor = _self: import ./modules/default.nix;
-          default = ./modules/default.nix;
-          cuda = ./modules/cuda.nix;
-          formatting = ./modules/formatting.nix;
-        };
-
         templates = {
           uv = {
             path = ./templates/uv;
