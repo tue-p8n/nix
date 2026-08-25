@@ -69,13 +69,12 @@
         inherit inputs;
         lib = inputs.nixpkgs.lib;
       };
-      p8nFlakeModule = import ./flake-module.nix { inherit p8nLib; };
     in
     flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
-        inputs.git-hooks.flakeModule
-        inputs.treefmt.flakeModule
-        p8nFlakeModule
+        ./modules/default.nix
+        ./modules/cuda.nix
+        ./modules/formatting.nix
       ];
 
       systems = [
@@ -85,7 +84,13 @@
       flake = {
         lib = p8nLib;
 
-        flakeModule = p8nFlakeModule;
+        flakeModule = ./modules/default.nix;
+
+        flakeModules = {
+          default = ./modules/default.nix;
+          cuda = ./modules/cuda.nix;
+          formatting = ./modules/formatting.nix;
+        };
 
         templates = {
           uv = {
@@ -115,9 +120,6 @@
           ...
         }:
         {
-          p8n.nixpkgs.manage = true;
-          p8n.nixpkgs.cuda.enable = true;
-
           # Development shells
           devShells = {
             default = pkgs.mkShell {
@@ -154,54 +156,6 @@
             oci-pytorch2_8_0-cuda12_9-cudnn9-devel = pkgs.dockerTools.pullImage (
               p8n.container.get "pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel"
             );
-          };
-
-          # Treefmt enables formatting of multiple languages through `nix fmt`.
-          # This configuration enables multiple formatters and linters, and is
-          # intended as an opinionated starting point beyond the languages used in
-          # this repository.
-          treefmt = {
-            programs = {
-              clang-format.enable = true;
-              clang-tidy.enable = true;
-              deadnix.enable = true;
-              ruff.check = true;
-              ruff.format = true;
-              shellcheck.enable = true;
-              shfmt.enable = true;
-            };
-            settings = {
-              formatter = {
-                shellcheck.options = [
-                  "-s"
-                  "bash"
-                ];
-                ruff-check.priority = 1;
-                ruff-check.options = [ "--fix-only" ];
-                ruff-format.priority = 2;
-              };
-            };
-          };
-
-          # Pre-commit
-          pre-commit.settings = {
-            package = pkgs.prek;
-            hooks = {
-              treefmt = {
-                enable = true;
-                package = config.treefmt.build.wrapper;
-              };
-              check-toml.enable = true;
-              check-yaml.enable = true;
-              check-json.enable = true;
-              check-merge-conflicts.enable = true;
-              check-added-large-files.enable = true;
-              end-of-file-fixer.enable = true;
-              trim-trailing-whitespace = {
-                enable = true;
-                args = [ "--markdown-linebreak-ext=md" ];
-              };
-            };
           };
 
           # Checks

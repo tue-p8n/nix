@@ -33,7 +33,7 @@
       ...
     }:
     flake-parts.lib.mkFlake { inherit inputs; } {
-      imports = [ tue-p8n.flakeModule ];
+      imports = [ tue-p8n.flakeModules.default ];
       systems = [ "x86_64-linux" ];
 
       perSystem =

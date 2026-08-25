@@ -32,7 +32,7 @@ This page documents the complete public API and use-case cookbooks exported by `
 
 ### In `flake-parts` (Recommended)
 
-When using `flake-parts`, import `tue-p8n.flakeModule`. The library instance is automatically bound to `pkgs` and injected as `p8n` into `perSystem`:
+When using `flake-parts`, import the desired `tue-p8n.flakeModules` (`default`, `cuda`, `formatting`). The library instance is automatically bound to `pkgs` and injected as `p8n` into `perSystem`:
 
 ```nix
 {
@@ -44,7 +44,11 @@ When using `flake-parts`, import `tue-p8n.flakeModule`. The library instance is 
 
   outputs = inputs@{ flake-parts, tue-p8n, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
-      imports = [ tue-p8n.flakeModule ];
+      # Use `cuda` for GPU projects, or `default` for CPU/LaTeX/Typst
+      imports = [
+        tue-p8n.flakeModules.cuda
+        tue-p8n.flakeModules.formatting
+      ];
       systems = [ "x86_64-linux" ];
 
       perSystem = { pkgs, p8n, ... }: {
@@ -482,17 +486,19 @@ in
 
 ---
 
-## `flakeModule` Configuration Options
+## `flakeModules` Reference
 
-When importing `tue-p8n.flakeModule`, the following options are available under `perSystem`:
+`tue-p8n` exports three composable `flake-parts` modules under `flake.flakeModules`:
+
+- **`tue-p8n.flakeModules.default`**: Injects `_module.args.p8n` into `perSystem` and configures Cachix binary caches in `flake.nixConfig`. Standard `pkgs` is untouched.
+- **`tue-p8n.flakeModules.cuda`**: Imports `default` and automatically configures `_module.args.pkgs` with `cudaSupport = true`, `cudaForwardCompat = true`, and `allowUnfree = true`.
+- **`tue-p8n.flakeModules.formatting`**: Provides opinionated formatters (`treefmt-nix`) and pre-commit hooks (`git-hooks.nix`). All tools use `lib.mkDefault` and can be overridden perSystem.
+
+### Options in `flakeModules.cuda`
 
 ```nix
 perSystem = { ... }: {
-  # Enables automatic unfree and CUDA configuration on _module.args.pkgs
-  p8n.nixpkgs.manage = true;
-  p8n.nixpkgs.cuda.enable = true;
-
   # Optionally specify compute capabilities (e.g. ["8.6" "8.9"])
-  p8n.nixpkgs.cuda.capabilities = [ "8.6" "8.9" ];
+  p8n.cuda.capabilities = [ "8.6" "8.9" ];
 };
 ```

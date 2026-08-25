@@ -33,7 +33,7 @@
       ...
     }:
     flake-parts.lib.mkFlake { inherit inputs; } {
-      imports = [ tue-p8n.flakeModule ];
+      imports = [ tue-p8n.flakeModules.cuda ];
       systems = [ "x86_64-linux" ];
 
       perSystem =
@@ -42,9 +42,6 @@
           ...
         }:
         {
-          p8n.nixpkgs.manage = true;
-          p8n.nixpkgs.cuda.enable = true;
-
           # Interactive UV shell (run `uv sync` inside)
           devShells.default = p8n.uv.mkShell {
             name = "my-research-project";

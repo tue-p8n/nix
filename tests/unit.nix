@@ -442,7 +442,7 @@ let
             nixpkgs = mockPkgs;
             self = { };
           };
-          module = (import ../flake-module.nix { p8nLib = (_pkgs: p8nInstance); });
+          module = (import ../modules/default.nix { p8nLib = (_pkgs: p8nInstance); });
           evaluated = module {
             inputs = downstreamInputs;
             inherit lib;
@@ -450,7 +450,7 @@ let
               mkPerSystemOption = f: {
                 options = { };
                 config = (f {
-                  config = { p8n = { nixpkgs = { manage = false; cuda = { enable = false; capabilities = null; }; }; }; };
+                  config = { };
                   pkgs = mockPkgs;
                   system = "x86_64-linux";
                 }).config;
@@ -459,6 +459,24 @@ let
           };
         in
         builtins.isFunction evaluated.options.perSystem.config._module.args.p8n.uv.mkProject;
+      expected = true;
+    };
+
+    testFlakeModuleCudaStructure = {
+      expr =
+        let
+          module = import ../modules/cuda.nix;
+        in
+        builtins.isFunction module;
+      expected = true;
+    };
+
+    testFlakeModuleFormattingStructure = {
+      expr =
+        let
+          module = import ../modules/formatting.nix;
+        in
+        builtins.isFunction module;
       expected = true;
     };
   };

@@ -96,7 +96,7 @@ inputs = {
 
 ### With `flake-parts` (Recommended)
 
-When using `flake-parts`, import `tue-p8n.flakeModule`. The library helper `p8n` is automatically injected into `perSystem` with `pkgs` pre-bound:
+When using `flake-parts`, import the desired `tue-p8n.flakeModules`. The library helper `p8n` is automatically injected into `perSystem`:
 
 ```nix
 {
@@ -108,14 +108,14 @@ When using `flake-parts`, import `tue-p8n.flakeModule`. The library helper `p8n`
 
   outputs = inputs@{ flake-parts, tue-p8n, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
-      imports = [ tue-p8n.flakeModule ];
+      # Use `tue-p8n.flakeModules.cuda` for GPU projects, or `default` for CPU/LaTeX/Typst
+      imports = [
+        tue-p8n.flakeModules.cuda
+        tue-p8n.flakeModules.formatting # Optional: opinionated treefmt + pre-commit hooks
+      ];
       systems = [ "x86_64-linux" ];
 
       perSystem = { pkgs, p8n, ... }: {
-        # Enable unfree CUDA packages
-        p8n.nixpkgs.manage = true;
-        p8n.nixpkgs.cuda.enable = true;
-
         # 1. Interactive UV development shell
         devShells.default = p8n.uv.mkShell {
           accelerator = "cuda12_9";
