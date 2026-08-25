@@ -187,6 +187,7 @@ rec {
         else
           throw "p8n.latex.readProject: expected a src path or an attribute set containing `src`.";
 
+      customArgs = if builtins.isAttrs args then args else { };
       hasLatexmkrc =
         builtins.pathExists (src + "/latexmkrc")
         || builtins.pathExists (src + "/.latexmkrc");
