@@ -114,7 +114,7 @@ rec {
       pkgs ? defaultPkgs,
       texlive ? (if version != null then version else "default"),
       version ? null,
-      main ? "main.tex",
+      main ? null,
       texpkgs ? defaultTexpkgs,
       packages ? (with pkgs; [ cacert ]),
       extraPackages ? [ ],
@@ -137,6 +137,21 @@ rec {
         ++ latexmkFlags
       );
 
+      hasLatexmkrc =
+        builtins.pathExists (src + "/latexmkrc")
+        || builtins.pathExists (src + "/.latexmkrc");
+      resolvedMain =
+        if main != null then
+          main
+        else if hasLatexmkrc then
+          ""
+        else if builtins.pathExists (src + "/main.tex") then
+          "main.tex"
+        else if builtins.pathExists (src + "/paper.tex") then
+          "paper.tex"
+        else
+          "main.tex";
+
       passThroughAttrs = stripCustomArgs mkDocument args;
     in
     pkgs.stdenv.mkDerivation (
@@ -154,7 +169,7 @@ rec {
           runHook preBuild
 
           export HOME=$(mktemp -d)
-          latexmk ${flagsStr} ${main}
+          latexmk ${flagsStr} ${resolvedMain}
 
           runHook postBuild
         '';
