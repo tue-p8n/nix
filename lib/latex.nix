@@ -169,7 +169,7 @@ rec {
           runHook preBuild
 
           export HOME=$(mktemp -d)
-          latexmk ${flagsStr} ${resolvedMain}
+          latexmk ${flagsStr}${if resolvedMain != "" then " " + resolvedMain else ""}
 
           runHook postBuild
         '';
