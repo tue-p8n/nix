@@ -132,25 +132,27 @@ rec {
           "document.typ"
         else
           "main.typ";
+      mkDoc = mkDocument;
+      mkSh = mkShell;
     in
-    rec {
+    {
       inherit src;
       main = customArgs.main or defaultMain;
 
       mkDocument =
         docArgs:
-        mkDocument (
+        mkDoc (
           customArgs
           // docArgs
           // {
             inherit src;
-            main = docArgs.main or main;
+            main = docArgs.main or (customArgs.main or defaultMain);
           }
         );
 
       mkShell =
         shellArgs:
-        mkShell (
+        mkSh (
           customArgs
           // shellArgs
         );
