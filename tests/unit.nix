@@ -236,7 +236,10 @@ let
         let
           proj = p8nInstance.uv.readProject ./fixtures/uv2nix-fixture;
         in
-        builtins.isFunction proj.build && builtins.isFunction proj.shell;
+        builtins.isFunction proj.build
+        && builtins.isFunction proj.mkShell
+        && builtins.isFunction proj.mkOCI
+        && builtins.isFunction proj.mkSIF;
       expected = true;
     };
     testUvInferAcceleratorFixture = {
@@ -350,11 +353,19 @@ let
 
     # Document module readProject
     testLatexReadProjectExists = {
-      expr = builtins.isFunction p8nInstance.latex.readProject;
+      expr =
+        let
+          proj = p8nInstance.latex.readProject ./.;
+        in
+        builtins.isFunction proj.mkDocument && builtins.isFunction proj.mkShell;
       expected = true;
     };
     testTypstReadProjectExists = {
-      expr = builtins.isFunction p8nInstance.typst.readProject;
+      expr =
+        let
+          proj = p8nInstance.typst.readProject ./.;
+        in
+        builtins.isFunction proj.mkDocument && builtins.isFunction proj.mkShell;
       expected = true;
     };
 

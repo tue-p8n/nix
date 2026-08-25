@@ -130,7 +130,7 @@ rec {
       inherit src;
       main = customArgs.main or defaultMain;
 
-      document =
+      mkDocument =
         docArgs:
         mkDocument (
           customArgs
@@ -141,15 +141,11 @@ rec {
           }
         );
 
-      shell =
+      mkShell =
         shellArgs:
         mkShell (
           customArgs
           // shellArgs
         );
-
-      build = document;
     };
-
-  loadProject = readProject;
 }

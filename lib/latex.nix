@@ -178,7 +178,7 @@ rec {
       main = customArgs.main or defaultMain;
       hasCustomLatexmkrc = hasLatexmkrc;
 
-      document =
+      mkDocument =
         docArgs:
         mkDocument (
           customArgs
@@ -189,15 +189,11 @@ rec {
           }
         );
 
-      shell =
+      mkShell =
         shellArgs:
         mkShell (
           customArgs
           // shellArgs
         );
-
-      build = document;
     };
-
-  loadProject = readProject;
 }

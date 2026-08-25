@@ -59,8 +59,7 @@ rec {
       }
     );
 
-  shell = buildArgs: (build buildArgs).shell;
-  mkShell = shell;
-  oci = buildArgs: (build buildArgs).oci;
-  sif = buildArgs: (build buildArgs).sif;
+  mkShell = buildArgs: (build buildArgs).shell;
+  mkOCI = buildArgs: (build buildArgs).oci;
+  mkSIF = buildArgs: (build buildArgs).sif;
 }
