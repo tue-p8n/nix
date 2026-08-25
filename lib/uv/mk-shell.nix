@@ -33,16 +33,17 @@ rec {
 
       nixglhost = pkgs'.nixglhost or null;
       libPath = pkgs'.lib.makeLibraryPath accelConfig.libraries.packages;
+      resolvedName =
+        if name != null then
+          name
+        else
+          "uv-${builtins.replaceStrings [ "." "cuda-" ] [ "_" "cuda" ] accelConfig.name}";
       passThroughAttrs = stripCustomArgs mkShell args;
     in
     (pkgs'.mkShell.override { inherit (accelConfig) stdenv; }) (
       passThroughAttrs
       // {
-        name =
-          if name != null then
-            name
-          else
-            "uv-${builtins.replaceStrings [ "." "cuda-" ] [ "_" "cuda" ] accelConfig.name}";
+        name = resolvedName;
 
         packages =
           accelConfig.packages
@@ -90,14 +91,13 @@ rec {
           ${internal.hostGpuHook nixglhost}
           ${accelConfig.shellHook}
 
-          export UV_PROJECT_ENVIRONMENT="$REPO_ROOT/.venv"
+          export UV_PROJECT_ENVIRONMENT="$REPO_ROOT/.venvs/${resolvedName}"
           export VIRTUAL_ENV="$UV_PROJECT_ENVIRONMENT"
 
           # Set after the activation hook, which is what defines REPO_ROOT.
-          # Keyed by accelerator because every variant of a repo shares one
-          # `.venv`, so keying on that would let a CUDA build and a ROCm build
-          # read each other's JIT-compiled extensions.
-          export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${accelConfig.name}}"
+          # Keyed by shell name so distinct shells / accelerators don't
+          # overwrite each other's JIT-compiled extensions.
+          export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${resolvedName}}"
 
           echo "🐍 UV shell activated: $(uv --version) [${accelConfig.name}]"
           ${shellHook}

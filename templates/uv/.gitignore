@@ -13,6 +13,8 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+.venv/
+.venvs/
 
 # Torch JIT extension cache (created on first shell entry)
 .torch-extensions/

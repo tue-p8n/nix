@@ -32,12 +32,17 @@ rec {
 
       nixglhost = pkgs'.nixglhost or null;
       nixglPkg = if nixglhost != null then [ nixglhost ] else [ ];
+      resolvedName =
+        if name != "uv-fhs-shell" then
+          name
+        else
+          "uv-fhs-${builtins.replaceStrings [ "." "cuda-" ] [ "_" "cuda" ] accelConfig.name}";
       passThroughAttrs = stripCustomArgs mkFHS args;
 
       fhs = pkgs'.buildFHSEnv (
         passThroughAttrs
         // {
-          inherit name;
+          name = resolvedName;
 
           targetPkgs =
             ps:
@@ -71,14 +76,13 @@ rec {
             export UV_LOCKED=1
             export UV_PYTHON_PREFERENCE=only-managed
             export UV_PYTHON_DOWNLOADS=auto
-            export UV_PROJECT_ENVIRONMENT="$REPO_ROOT/.venv"
+            export UV_PROJECT_ENVIRONMENT="$REPO_ROOT/.venvs/${resolvedName}"
             export VIRTUAL_ENV="$UV_PROJECT_ENVIRONMENT"
 
             # Set after the activation hook, which is what defines REPO_ROOT.
-            # Keyed by accelerator because every variant of a repo shares one
-            # `.venv`, so keying on that would let a CUDA build and a ROCm
-            # build read each other's JIT-compiled extensions.
-            export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${accelConfig.name}}"
+            # Keyed by shell name so distinct shells / accelerators don't
+            # overwrite each other's JIT-compiled extensions.
+            export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${resolvedName}}"
 
             echo " >>> UV FHS environment activated [${accelConfig.name}]"
             ${profile}

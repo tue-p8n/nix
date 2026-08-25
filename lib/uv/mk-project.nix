@@ -236,7 +236,7 @@ rec {
       shell = (pkgs'.mkShell.override { inherit (accelConfig) stdenv; }) (
         passThroughAttrs
         // {
-          name = "${name}-uv2nix-${tag}";
+          name = "${name}-project-${tag}";
 
           packages =
             accelConfig.packages
@@ -276,7 +276,7 @@ rec {
 
             export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${name}-${tag}}"
 
-            echo " >>> UV (uv2nix) shell activated: $(uv --version) [${tag}]"
+            echo " >>> UV (project) shell activated: $(uv --version) [${tag}]"
             ${shellHook}
           '';
 
