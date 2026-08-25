@@ -103,4 +103,53 @@ rec {
         };
       }
     );
+
+  readProject =
+    args:
+    let
+      src =
+        if builtins.isPath args || builtins.isString args then
+          args
+        else if builtins.isAttrs args && args ? src then
+          args.src
+        else if builtins.isAttrs args && args ? workspaceRoot then
+          args.workspaceRoot
+        else
+          throw "p8n.typst.readProject: expected a src path or an attribute set containing `src`.";
+
+      customArgs = if builtins.isAttrs args then args else { };
+      defaultMain =
+        if builtins.pathExists (src + "/main.typ") then
+          "main.typ"
+        else if builtins.pathExists (src + "/document.typ") then
+          "document.typ"
+        else
+          "main.typ";
+    in
+    rec {
+      inherit src;
+      main = customArgs.main or defaultMain;
+
+      document =
+        docArgs:
+        mkDocument (
+          customArgs
+          // docArgs
+          // {
+            inherit src;
+            main = docArgs.main or main;
+          }
+        );
+
+      shell =
+        shellArgs:
+        mkShell (
+          customArgs
+          // shellArgs
+        );
+
+      build = document;
+    };
+
+  loadProject = readProject;
 }

@@ -12,7 +12,6 @@ let
   inherit (inputs) uv2nix;
   pyprojectNix = inputs.pyproject-nix;
   pyprojectBuildSystems = inputs.pyproject-build-systems;
-  hooks = import ./hooks.nix { inherit internal; };
 
   stripCustomArgs =
     fn: args:
@@ -42,7 +41,12 @@ rec {
       ...
     }@args:
     let
-      accelConfig = config.build pkgs accelerator;
+      resolvedAccelerator =
+        if builtins.isFunction accelerator then
+          accelerator { inherit workspaceRoot extras; }
+        else
+          accelerator;
+      accelConfig = config.build pkgs resolvedAccelerator;
       pkgs' = accelConfig.pkgs;
       resolvedPython = if python != null then python else pkgs'.python313;
       resolvePkgs = p: if builtins.isFunction p then p pkgs' else p;
@@ -265,10 +269,10 @@ rec {
             unset _nvlib
             export LD_LIBRARY_PATH
 
-            ${hooks.accelActivationHook {
-              config = accelConfig;
-              inherit nixglhost;
-            }}
+            ${internal.exportEnv accelConfig.environment.variables}
+            ${internal.repoRootHook}
+            ${internal.hostGpuHook nixglhost}
+            ${accelConfig.shellHook}
 
             export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${name}-${tag}}"
 

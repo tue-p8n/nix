@@ -6,7 +6,6 @@
 }:
 let
   defaultPkgs = pkgs;
-  hooks = import ./hooks.nix { inherit internal; };
   stripCustomArgs =
     fn: args:
     let
@@ -63,11 +62,18 @@ rec {
           profile = ''
             set -e
 
-            ${hooks.accelActivationHook {
-              config = accelConfig;
-              inherit nixglhost;
-            }}
-            ${hooks.uvBaseHook}
+            ${internal.exportEnv accelConfig.environment.variables}
+            ${internal.repoRootHook}
+            ${internal.hostGpuHook nixglhost}
+            ${accelConfig.shellHook}
+
+            export UV_LINK_MODE=copy
+            export UV_NO_SYNC=1
+            export UV_LOCKED=1
+            export UV_PYTHON_PREFERENCE=only-managed
+            export UV_PYTHON_DOWNLOADS=auto
+            export UV_PROJECT_ENVIRONMENT="$REPO_ROOT/.venv"
+            export VIRTUAL_ENV="$UV_PROJECT_ENVIRONMENT"
 
             # Set after the activation hook, which is what defines REPO_ROOT.
             # Keyed by accelerator because every variant of a repo shares one

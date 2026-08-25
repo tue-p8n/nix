@@ -149,4 +149,55 @@ rec {
         };
       }
     );
+
+  readProject =
+    args:
+    let
+      src =
+        if builtins.isPath args || builtins.isString args then
+          args
+        else if builtins.isAttrs args && args ? src then
+          args.src
+        else if builtins.isAttrs args && args ? workspaceRoot then
+          args.workspaceRoot
+        else
+          throw "p8n.latex.readProject: expected a src path or an attribute set containing `src`.";
+
+      customArgs = if builtins.isAttrs args then args else { };
+      hasLatexmkrc = builtins.pathExists (src + "/.latexmkrc");
+      defaultMain =
+        if builtins.pathExists (src + "/main.tex") then
+          "main.tex"
+        else if builtins.pathExists (src + "/paper.tex") then
+          "paper.tex"
+        else
+          "main.tex";
+    in
+    rec {
+      inherit src;
+      main = customArgs.main or defaultMain;
+      hasCustomLatexmkrc = hasLatexmkrc;
+
+      document =
+        docArgs:
+        mkDocument (
+          customArgs
+          // docArgs
+          // {
+            inherit src;
+            main = docArgs.main or main;
+          }
+        );
+
+      shell =
+        shellArgs:
+        mkShell (
+          customArgs
+          // shellArgs
+        );
+
+      build = document;
+    };
+
+  loadProject = readProject;
 }

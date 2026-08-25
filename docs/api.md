@@ -129,11 +129,22 @@ Python environment builders powered by [uv](https://github.com/astral-sh/uv) and
 #### `p8n.uv.mkShell { accelerator?, name?, packages?, extraPackages?, env?, shellHook?, passthru? }`
 Interactive development shell with `uv`, compiler toolchains, `nix-ld` host GPU bindings, and `UV_TORCH_BACKEND` configured. Dependency resolution is performed interactively via runtime `uv sync`.
 
+#### `p8n.uv.readProject (workspaceRoot | { workspaceRoot, ... })` (Alias: `p8n.uv.loadProject`)
+Inspects a UV project workspace once and returns an object exposing metadata, hardware inference, and target builders:
+- **`.inferAccelerator (package? | { package?, extras? })`**: Automatically analyzes the locked dependency graph in `uv.lock` for the target package (defaults to `"torch"`), inspecting `cuda-toolkit`, `cuda-bindings`, `rocm-core`, and wheel tags. Returns a typed accelerator config set (e.g. `{ acceleration = "cuda"; cuda.version = "13.2"; }` or `{ acceleration = "none"; }`).
+- **`.build { name, accelerator?, ... }`**: Builds `{ shell, venv, oci, sif, pythonSet, workspace }`.
+- **`.shell { name, accelerator?, ... }`**: Shortcut for `(project.build args).shell`.
+- **`.oci { name, accelerator?, ... }`**: Shortcut for `(project.build args).oci`.
+- **`.sif { name, accelerator?, ... }`**: Shortcut for `(project.build args).sif`.
+
+#### `p8n.uv.inferAccelerator (package | { workspaceRoot, package?, extras? })`
+Standalone helper that can be called directly or passed as a resolver function to `accelerator = p8n.uv.inferAccelerator "torch"`.
+
 #### `p8n.uv.mkFHS { accelerator?, name?, packages?, extraPackages?, profile?, passthru? }`
 FHS container flavor for Python tooling requiring full FHS filesystem emulation.
 
 #### `p8n.uv.mkProject { name, workspaceRoot, accelerator?, python?, extras?, overrides?, packages?, extraPackages?, env?, shellHook?, missingBuildSystems?, crossWheelLinkingPackages?, extraLibs? }`
-Builds the project's **entire** Python virtual environment hermetically as Nix derivations via `uv2nix` (zero runtime `uv sync`). Requires `pyproject.toml` and a committed `uv.lock`.
+Builds the project's **entire** Python virtual environment hermetically as Nix derivations via `uv2nix` (zero runtime `uv sync`). Requires `pyproject.toml` and a committed `uv.lock`. `accelerator` can be a shorthand string (`"cpu"`, `"cuda"`, `"cuda12_8"`, `"rocm"`), an explicit configuration attribute set, or an inference resolver function (`p8n.uv.inferAccelerator "torch"`).
 
 - **`extras`** (`[string] | null`, default `null`): Python extras to enable. When `null` (default), automatically derives the backend extra from `accelerator` (e.g. `["cu129"]`, `["rocm"]`, `["cpu"]`). Specify explicitly (e.g. `extras = [ "cu129" ]` or `extras = [ "cu129" "dev" ]`) when selecting specific wheels or multiple extras. Set `extras = [ ]` to disable all extra injection.
 
@@ -173,12 +184,20 @@ Returns `dockerTools.pullImage` attribute specification for curated container im
 
 ### `p8n.latex` & `p8n.typst` Modules
 
+#### `p8n.latex.readProject (src | { src, ... })` (Alias: `p8n.latex.loadProject`)
+Inspects a LaTeX repository root (auto-detecting `main.tex` or `paper.tex` and `.latexmkrc`) and returns:
+- **`.document { name, main?, ... }`** (or **`.build`**): Builds the document PDF.
+- **`.shell { ... }`**: Interactive TeX authoring shell.
+
 #### `p8n.latex.mkShell { texlive?, version?, texpkgs?, packages?, extraPackages?, env?, shellHook? }`
 - **`texlive` / `version`** (`string | attrs`, default `"default"`): Selects the TeX Live release baseline (`"default"`, `"2024"` / `"24.05"`, `"2023"` / `"23.11"`) or a custom TeX Live package set. Use `"2023"` for legacy document templates that have package incompatibilities with newer LaTeX kernels.
 - **`texpkgs`** (`ps -> attrs`, default `ps: { inherit (ps) scheme-full; }`): Custom TeX Live package set function.
 
 #### `p8n.latex.mkDocument { name, src, texlive?, version?, main?, texpkgs?, packages?, extraPackages?, shellEscape?, latexmkFlags?, env? }`
 Builds a PDF derivation using `latexmk`. Accepts `texlive` / `version` to pin older TeX Live release environments (e.g. `"2023"`). Defaults to `main = "main.tex"`.
+
+#### `p8n.typst.readProject (src | { src, ... })` (Alias: `p8n.typst.loadProject`)
+Inspects a Typst document root (auto-detecting `main.typ`) and returns `.document` (or `.build`) and `.shell`.
 
 #### `p8n.typst.mkShell { packages?, extraPackages?, env?, shellHook? }`
 Interactive shell with `typst`, `hayagriva`, and `typstyle`.

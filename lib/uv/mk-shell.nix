@@ -6,7 +6,6 @@
 }:
 let
   defaultPkgs = pkgs;
-  hooks = import ./hooks.nix { inherit internal; };
   stripCustomArgs =
     fn: args:
     let
@@ -62,7 +61,16 @@ rec {
           ++ (resolvePkgs packages)
           ++ (resolvePkgs extraPackages);
 
-        env = accelConfig.environment.variables // env;
+        env =
+          accelConfig.environment.variables
+          // {
+            UV_LINK_MODE = "copy";
+            UV_NO_SYNC = "1";
+            UV_LOCKED = "1";
+            UV_PYTHON_PREFERENCE = "only-managed";
+            UV_PYTHON_DOWNLOADS = "auto";
+          }
+          // env;
 
         shellHook = ''
           ${internal.nixLdHook pkgs' libPath}
@@ -78,11 +86,13 @@ rec {
           export LIBRARY_PATH="${libPath}:$LIBRARY_PATH"
           export LD_LIBRARY_PATH="${libPath}:$LD_LIBRARY_PATH"
 
-          ${hooks.accelActivationHook {
-            config = accelConfig;
-            inherit nixglhost;
-          }}
-          ${hooks.uvBaseHook}
+          ${internal.exportEnv accelConfig.environment.variables}
+          ${internal.repoRootHook}
+          ${internal.hostGpuHook nixglhost}
+          ${accelConfig.shellHook}
+
+          export UV_PROJECT_ENVIRONMENT="$REPO_ROOT/.venv"
+          export VIRTUAL_ENV="$UV_PROJECT_ENVIRONMENT"
 
           # Set after the activation hook, which is what defines REPO_ROOT.
           # Keyed by accelerator because every variant of a repo shares one

@@ -9,7 +9,7 @@ let
   }) devShells;
 in
 {
-  unit = import ./unit.nix { inherit pkgs; };
+  unit = import ./unit.nix { inherit pkgs inputs; };
   uv2nix = import ./uv2nix.nix {
     inherit pkgs;
     inherit (inputs.self) lib;

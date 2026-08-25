@@ -1,6 +1,7 @@
 {
   pkgs ? import <nixpkgs> { },
   lib ? pkgs.lib,
+  inputs ? { },
 }:
 let
   cudaComponents = [
@@ -222,12 +223,138 @@ let
       expr = builtins.isFunction p8nInstance.uv.mkProject;
       expected = true;
     };
+    testUvReadProjectExists = {
+      expr = builtins.isFunction p8nInstance.uv.readProject;
+      expected = true;
+    };
+    testUvInferAcceleratorExists = {
+      expr = builtins.isFunction p8nInstance.uv.inferAccelerator;
+      expected = true;
+    };
+    testUvReadProjectFixture = {
+      expr =
+        let
+          proj = p8nInstance.uv.readProject ./fixtures/uv2nix-fixture;
+        in
+        builtins.isFunction proj.build && builtins.isFunction proj.shell;
+      expected = true;
+    };
+    testUvInferAcceleratorFixture = {
+      expr =
+        let
+          proj = p8nInstance.uv.readProject ./fixtures/uv2nix-fixture;
+        in
+        proj.inferAccelerator "fixture";
+      expected = {
+        acceleration = "none";
+      };
+    };
+    testUvInspectPackageBackendCudaToolkit = {
+      expr =
+        let
+          inferHelper = import ../lib/uv/infer-accelerator.nix {
+            inherit lib inputs;
+          };
+          mockPkg = {
+            name = "torch";
+            version = "2.11.0";
+            dependencies = [
+              { name = "cuda-toolkit"; version = "12.8.1"; }
+            ];
+          };
+        in
+        inferHelper.inspectPackageBackend mockPkg;
+      expected = {
+        acceleration = "cuda";
+        cuda = { version = "12.8"; };
+      };
+    };
+    testUvInspectPackageBackendCudaBindings = {
+      expr =
+        let
+          inferHelper = import ../lib/uv/infer-accelerator.nix {
+            inherit lib inputs;
+          };
+          mockPkg = {
+            name = "torch";
+            version = "2.13.0";
+            dependencies = [
+              { name = "cuda-bindings"; version = "13.3.1"; }
+            ];
+          };
+        in
+        inferHelper.inspectPackageBackend mockPkg;
+      expected = {
+        acceleration = "cuda";
+        cuda = { version = "13.3"; };
+      };
+    };
+    testUvInspectPackageBackendCudaWheel = {
+      expr =
+        let
+          inferHelper = import ../lib/uv/infer-accelerator.nix {
+            inherit lib inputs;
+          };
+          mockPkg = {
+            name = "torch";
+            version = "2.5.1+cu124";
+          };
+        in
+        inferHelper.inspectPackageBackend mockPkg;
+      expected = {
+        acceleration = "cuda";
+        cuda = { version = "12.4"; };
+      };
+    };
+    testUvInspectPackageBackendRocm = {
+      expr =
+        let
+          inferHelper = import ../lib/uv/infer-accelerator.nix {
+            inherit lib inputs;
+          };
+          mockPkg = {
+            name = "torch";
+            version = "2.6.0+rocm6.2";
+          };
+        in
+        inferHelper.inspectPackageBackend mockPkg;
+      expected = {
+        acceleration = "rocm";
+        rocm = { version = "6.2"; };
+      };
+    };
+    testUvInspectPackageBackendCpu = {
+      expr =
+        let
+          inferHelper = import ../lib/uv/infer-accelerator.nix {
+            inherit lib inputs;
+          };
+          mockPkg = {
+            name = "torch";
+            version = "2.6.0";
+          };
+        in
+        inferHelper.inspectPackageBackend mockPkg;
+      expected = {
+        acceleration = "none";
+      };
+    };
     testUvMkOCIExists = {
       expr = builtins.isFunction p8nInstance.uv.mkOCI;
       expected = true;
     };
     testUvMkDockerAliasExists = {
       expr = builtins.isFunction p8nInstance.uv.mkDocker;
+      expected = true;
+    };
+
+    # Document module readProject
+    testLatexReadProjectExists = {
+      expr = builtins.isFunction p8nInstance.latex.readProject;
+      expected = true;
+    };
+    testTypstReadProjectExists = {
+      expr = builtins.isFunction p8nInstance.typst.readProject;
       expected = true;
     };
 
@@ -350,7 +477,7 @@ let
   p8nInstance =
     (import ../lib {
       inherit lib;
-      inputs = {
+      inputs = inputs // {
         nixpkgs-24-05 = mockNixpkgs "2024";
         nixpkgs-23-11 = mockNixpkgs "2023";
       };
