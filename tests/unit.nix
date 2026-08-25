@@ -360,7 +360,9 @@ let
         let
           proj = p8nInstance.latex.readProject ./.;
         in
-        builtins.isFunction proj.mkDocument && builtins.isFunction proj.mkShell;
+        builtins.isFunction proj.mkDocument
+        && builtins.isFunction proj.mkShell
+        && builtins.isFunction proj.mkWatch;
       expected = true;
     };
     testTypstReadProjectExists = {
@@ -368,7 +370,9 @@ let
         let
           proj = p8nInstance.typst.readProject ./.;
         in
-        builtins.isFunction proj.mkDocument && builtins.isFunction proj.mkShell;
+        builtins.isFunction proj.mkDocument
+        && builtins.isFunction proj.mkShell
+        && builtins.isFunction proj.mkWatch;
       expected = true;
     };
 

@@ -111,6 +111,43 @@ rec {
       }
     );
 
+  mkWatch =
+    {
+      name ? "typst-watch",
+      src,
+      pkgs ? defaultPkgs,
+      main ? null,
+      output ? "document.pdf",
+      packages ? [ ],
+      extraPackages ? [ ],
+      ...
+    }:
+    let
+      resolvedMain =
+        if main != null then
+          main
+        else if builtins.pathExists (src + "/main.typ") then
+          "main.typ"
+        else if builtins.pathExists (src + "/document.typ") then
+          "document.typ"
+        else
+          "main.typ";
+
+      allPkgs = [ pkgs.typst ] ++ packages ++ extraPackages;
+      pathStr = pkgs.lib.makeBinPath allPkgs;
+
+      script = pkgs.writeShellScriptBin name ''
+        export PATH="${pathStr}:$PATH"
+        cd "${src}"
+        exec typst watch "${resolvedMain}" "${output}" "$@"
+      '';
+    in
+    {
+      type = "app";
+      program = "${script}/bin/${name}";
+    }
+    // script;
+
   readProject =
     args:
     let
@@ -134,6 +171,7 @@ rec {
           "main.typ";
       mkDoc = mkDocument;
       mkSh = mkShell;
+      mkWch = mkWatch;
     in
     {
       inherit src;
@@ -155,6 +193,17 @@ rec {
         mkSh (
           customArgs
           // shellArgs
+        );
+
+      mkWatch =
+        watchArgs:
+        mkWch (
+          customArgs
+          // watchArgs
+          // {
+            inherit src;
+            main = watchArgs.main or (customArgs.main or defaultMain);
+          }
         );
     };
 }

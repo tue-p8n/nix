@@ -189,6 +189,65 @@ rec {
       }
     );
 
+  mkWatch =
+    {
+      name ? "latex-watch",
+      src,
+      pkgs ? defaultPkgs,
+      texlive ? (if version != null then version else "default"),
+      version ? null,
+      main ? null,
+      texpkgs ? defaultTexpkgs,
+      packages ? [ ],
+      extraPackages ? [ ],
+      shellEscape ? false,
+      latexmkFlags ? [ ],
+      ...
+    }:
+    let
+      resolvedTexlive = resolveTexlive texlive;
+      tex = resolvedTexlive.combine (texpkgs resolvedTexlive);
+      shellEscapeFlag = if shellEscape then "-shell-escape" else "";
+      flagsStr = builtins.concatStringsSep " " (
+        [
+          "-pvc"
+          "-pdf"
+          "-interaction=nonstopmode"
+          shellEscapeFlag
+        ]
+        ++ latexmkFlags
+      );
+      hasLatexmkrc =
+        builtins.pathExists (src + "/latexmkrc")
+        || builtins.pathExists (src + "/.latexmkrc");
+      resolvedMain =
+        if main != null then
+          main
+        else if hasLatexmkrc then
+          ""
+        else if builtins.pathExists (src + "/main.tex") then
+          "main.tex"
+        else if builtins.pathExists (src + "/paper.tex") then
+          "paper.tex"
+        else
+          "main.tex";
+
+      allPkgs = [ tex ] ++ packages ++ extraPackages;
+      pathStr = pkgs.lib.makeBinPath allPkgs;
+
+      script = pkgs.writeShellScriptBin name ''
+        export PATH="${pathStr}:$PATH"
+        export TEXINPUTS=".:$TEXINPUTS"
+        cd "${src}"
+        exec latexmk ${flagsStr}${if resolvedMain != "" then " " + resolvedMain else ""} "$@"
+      '';
+    in
+    {
+      type = "app";
+      program = "${script}/bin/${name}";
+    }
+    // script;
+
   readProject =
     args:
     let
@@ -217,6 +276,7 @@ rec {
           "main.tex";
       mkDoc = mkDocument;
       mkSh = mkShell;
+      mkWch = mkWatch;
     in
     {
       inherit src;
@@ -239,6 +299,17 @@ rec {
         mkSh (
           customArgs
           // shellArgs
+        );
+
+      mkWatch =
+        watchArgs:
+        mkWch (
+          customArgs
+          // watchArgs
+          // {
+            inherit src;
+            main = watchArgs.main or (customArgs.main or defaultMain);
+          }
         );
     };
 }
