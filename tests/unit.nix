@@ -602,6 +602,70 @@ let
         builtins.length composed.inputsFrom == 1;
       expected = true;
     };
+    testComposeShellsConflictAcceleratorThrows = {
+      expr =
+        let
+          cu126 = p8nInstance.uv.mkShell { accelerator = "cuda12_6"; };
+          cu128 = p8nInstance.uv.mkShell { accelerator = "cuda12_8"; };
+        in
+        (builtins.tryEval (p8nInstance.composeShells [ cu126 cu128 ])).success;
+      expected = false;
+    };
+    testComposeShellsConflictAcceleratorBypass = {
+      expr =
+        let
+          cu126 = p8nInstance.uv.mkShell { accelerator = "cuda12_6"; };
+          cu128 = p8nInstance.uv.mkShell { accelerator = "cuda12_8"; };
+        in
+        (builtins.tryEval (p8nInstance.composeShells {
+          base = cu126;
+          shells = [ cu128 ];
+          ignoreConflicts = true;
+        })).success;
+      expected = true;
+    };
+    testComposeShellsConflictPythonThrows = {
+      expr =
+        let
+          uvDynamic = p8nInstance.uv.mkShell { name = "dynamic"; };
+          uvProject = (p8nInstance.uv.mkShell { name = "project"; }).overrideAttrs (_: {
+            passthru = {
+              p8n = {
+                category = "python";
+                flavor = "uv2nix";
+                name = "project";
+                venv = { outPath = "/nix/store/mock-venv"; };
+              };
+            };
+          });
+        in
+        (builtins.tryEval (p8nInstance.composeShells [ uvDynamic uvProject ])).success;
+      expected = false;
+    };
+    testComposeShellsConflictLatexThrows = {
+      expr =
+        let
+          latex24 = p8nInstance.latex.mkShell { texlive = "2024"; };
+          latex23 = p8nInstance.latex.mkShell { texlive = "2023"; };
+        in
+        (builtins.tryEval (p8nInstance.composeShells [ latex24 latex23 ])).success;
+      expected = false;
+    };
+    testComposeShellsCompatibleMultiDomain = {
+      expr =
+        let
+          cu128 = p8nInstance.uv.mkShell { accelerator = "cuda12_8"; };
+          bare128 = p8nInstance.accelerator.mkShell { accelerator = "cuda12_8"; };
+          paper = p8nInstance.latex.mkShell { texlive = "2024"; };
+          typst = p8nInstance.typst.mkShell { };
+          composed = p8nInstance.composeShells [ cu128 bare128 paper typst ];
+        in
+        (composed.passthru ? config)
+        && (composed.passthru ? tex)
+        && (composed.passthru ? typst)
+        && (builtins.length composed.inputsFrom == 3);
+      expected = true;
+    };
   };
 
   mockTexlive = name: {

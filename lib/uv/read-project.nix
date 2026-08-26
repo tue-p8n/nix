@@ -554,6 +554,13 @@ let
           inherit venv;
           pythonSet = venv.pythonSet;
           inherit workspace;
+          p8n = {
+            category = "python";
+            flavor = "uv2nix";
+            accelerator = tag;
+            name = name;
+            inherit venv;
+          };
         };
       }
     );

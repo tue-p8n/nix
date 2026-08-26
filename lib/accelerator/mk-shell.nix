@@ -69,6 +69,11 @@ rec {
 
         passthru = passthru // {
           config = accelConfig;
+          p8n = {
+            category = "accelerator";
+            flavor = "bare";
+            accelerator = accelConfig.name;
+          };
         };
       }
     );

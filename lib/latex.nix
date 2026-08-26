@@ -101,6 +101,11 @@ rec {
 
         passthru = passthru // {
           inherit tex;
+          p8n = {
+            category = "latex";
+            texlive = if builtins.isString texlive then texlive else "custom";
+            inherit tex;
+          };
         };
       }
     );

@@ -102,6 +102,12 @@ rec {
 
         passthru = passthru // {
           config = accelConfig;
+          p8n = {
+            category = "python";
+            flavor = "uv-dynamic";
+            accelerator = accelConfig.name;
+            name = resolvedName;
+          };
         };
       }
     );

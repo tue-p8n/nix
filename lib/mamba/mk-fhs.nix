@@ -91,6 +91,11 @@ rec {
       passthru = passthru // {
         inherit fhs;
         config = accelConfig;
+        p8n = {
+          category = "python";
+          flavor = "mamba";
+          accelerator = accelConfig.name;
+        };
       };
     };
 }

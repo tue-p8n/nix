@@ -54,6 +54,10 @@ rec {
 
         passthru = passthru // {
           typst = pkgs.typst;
+          p8n = {
+            category = "typst";
+            typst = pkgs.typst;
+          };
         };
       }
     );
