@@ -218,20 +218,22 @@ let
       availableExtras = if packageFound then (workspace.deps.optionals.${name} or [ ]) else [ ];
 
       resolvedExtras =
+        let
+          accelExtra =
+            if lib.hasPrefix "rocm" tag then
+              "rocm"
+            else
+              accelConfig.environment.variables.UV_TORCH_BACKEND or "cpu";
+          baseExtras =
+            if packageFound && builtins.elem accelExtra availableExtras then
+              [ accelExtra ]
+            else
+              [ ];
+        in
         if extras != null then
-          extras
+          lib.unique (baseExtras ++ extras)
         else
-          let
-            accelExtra =
-              if lib.hasPrefix "rocm" tag then
-                "rocm"
-              else
-                accelConfig.environment.variables.UV_TORCH_BACKEND or "cpu";
-          in
-          if packageFound && builtins.elem accelExtra availableExtras then
-            [ accelExtra ]
-          else
-            [ ];
+          baseExtras;
 
       missingExtras = builtins.filter (ext: !builtins.elem ext availableExtras) resolvedExtras;
 
