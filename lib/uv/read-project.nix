@@ -111,6 +111,16 @@ let
       "setuptools"
       "wheel"
     ];
+    trove-classifiers = [
+      "setuptools"
+      "wheel"
+      "calver"
+    ];
+    trove_classifiers = [
+      "setuptools"
+      "wheel"
+      "calver"
+    ];
   };
 
   defaultCrossWheelLinkingPackages = [
