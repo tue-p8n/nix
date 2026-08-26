@@ -67,6 +67,46 @@ let
       "setuptools"
       "wheel"
     ];
+    torchmatch = [
+      "setuptools"
+      "wheel"
+    ];
+    unipercept = [
+      "setuptools"
+      "wheel"
+    ];
+    unimt = [
+      "setuptools"
+      "wheel"
+    ];
+    unidata = [
+      "setuptools"
+      "wheel"
+    ];
+    evaluators = [
+      "setuptools"
+      "wheel"
+    ];
+    vistill = [
+      "setuptools"
+      "wheel"
+    ];
+    mpsi = [
+      "setuptools"
+      "wheel"
+    ];
+    multiformer = [
+      "setuptools"
+      "wheel"
+    ];
+    nulidar = [
+      "setuptools"
+      "wheel"
+    ];
+    freezemt = [
+      "setuptools"
+      "wheel"
+    ];
   };
 
   defaultCrossWheelLinkingPackages = [
@@ -262,6 +302,24 @@ let
               (old.postInstall or "")
               + ''
                 rm -rf "$out/${resolvedPython.sitePackages}/cv2"
+              '';
+          });
+        })
+        // (lib.optionalAttrs (prev ? calver) {
+          calver = prev.calver.overrideAttrs (old: {
+            postPatch =
+              (old.postPatch or "")
+              + ''
+                sed -i '/license = /d' pyproject.toml 2>/dev/null || true
+              '';
+          });
+        })
+        // (lib.optionalAttrs (prev ? trove-classifiers) {
+          trove-classifiers = prev.trove-classifiers.overrideAttrs (old: {
+            postPatch =
+              (old.postPatch or "")
+              + ''
+                sed -i '/license = /d' pyproject.toml 2>/dev/null || true
               '';
           });
         })
