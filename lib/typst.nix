@@ -38,10 +38,6 @@ rec {
     pkgs.mkShell (
       passThroughAttrs
       // {
-        env = env // {
-          TYPST_ENV_ACTIVE = "1";
-        };
-
         packages =
           [ pkgs.typst ]
           ++ packages
@@ -49,6 +45,8 @@ rec {
           ++ (internal.preCommit.packages preCommit);
 
         shellHook = ''
+          export TYPST_ENV_ACTIVE="1"
+          ${internal.exportEnv env}
           echo " >>> Typst environment activated: $(${pkgs.typst}/bin/typst --version)"
           ${internal.preCommit.hook preCommit}
           ${shellHook}

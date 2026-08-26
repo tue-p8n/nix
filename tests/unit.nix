@@ -86,10 +86,24 @@ let
           inherit cudaPackages;
           rocmPackages = mockRocmPackages;
           cacert = { outPath = "/nix/store/mock-cacert"; };
-          mkShell = {
-            __functor = _self: args: { passthru = args.passthru or { }; };
-            override = _: (args: { passthru = args.passthru or { }; });
-          };
+          mkShell =
+            let
+              mkSh =
+                args:
+                rec {
+                  name = args.name or "mock-shell";
+                  passthru = args.passthru or { };
+                  inputsFrom = args.inputsFrom or [ ];
+                  packages = args.packages or [ ];
+                  nativeBuildInputs = args.nativeBuildInputs or [ ];
+                  shellHook = args.shellHook or "";
+                  overrideAttrs = f: mkSh (args // f (args // { inherit name passthru inputsFrom packages nativeBuildInputs shellHook; }));
+                };
+            in
+            {
+              __functor = _self: args: mkSh args;
+              override = _: args: mkSh args;
+            };
           stdenv = {
             hostPlatform = {
               system = "x86_64-linux";
@@ -529,6 +543,63 @@ let
           shell = p8nWithPreCommit.accelerator.mkShell { };
         in
         builtins.isAttrs shell;
+      expected = true;
+    };
+
+    # composeShells tests
+    testComposeShellsExists = {
+      expr = builtins.isFunction p8nInstance.composeShells;
+      expected = true;
+    };
+    testCombineShellsAliasExists = {
+      expr = builtins.isFunction p8nInstance.combineShells;
+      expected = true;
+    };
+    testMergeShellsAliasExists = {
+      expr = builtins.isFunction p8nInstance.mergeShells;
+      expected = true;
+    };
+    testComposeShellsList = {
+      expr =
+        let
+          shell1 = p8nInstance.uv.mkShell { name = "shell-1"; };
+          shell2 = p8nInstance.latex.mkShell { };
+          composed = p8nInstance.composeShells [ shell1 shell2 ];
+        in
+        (builtins.length composed.inputsFrom == 1)
+        && (composed.name == "shell-1")
+        && (composed.passthru ? config)
+        && (composed.passthru ? tex);
+      expected = true;
+    };
+    testComposeShellsAttrSet = {
+      expr =
+        let
+          shell1 = p8nInstance.uv.mkShell { };
+          shell2 = p8nInstance.latex.mkShell { };
+          composed = p8nInstance.composeShells {
+            name = "custom-combined";
+            base = shell1;
+            shells = [ shell2 ];
+            env = {
+              TEST_VAR = "hello";
+            };
+          };
+        in
+        (composed.name == "custom-combined")
+        && (builtins.length composed.inputsFrom == 1)
+        && (composed.passthru ? config)
+        && (composed.passthru ? tex);
+      expected = true;
+    };
+    testComposeShellsFiltersNull = {
+      expr =
+        let
+          shell1 = p8nInstance.uv.mkShell { };
+          shell2 = p8nInstance.latex.mkShell { };
+          composed = p8nInstance.composeShells [ shell1 null false shell2 ];
+        in
+        builtins.length composed.inputsFrom == 1;
       expected = true;
     };
   };

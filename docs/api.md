@@ -13,6 +13,7 @@ This page documents the complete public API and use-case cookbooks exported by `
    - [`p8n.mamba` (Micromamba FHS Environments)](#p8nmamba-module)
    - [`p8n.container` (Apptainer/SIF & OCI Images)](#p8ncontainer-module)
    - [`p8n.latex` & `p8n.typst` (Paper Documents)](#p8nlatex--p8ntypst-modules)
+   - [`p8n.composeShells` (DevShell Composition)](#p8ncomposeshells)
    - [`p8n.config` (Hardware Engine)](#p8nconfig-module)
 4. [Use-Case Cookbooks & Examples](#use-case-cookbooks--examples)
    - [Cookbook 1: Pure-Nix Python Project with SIF & OCI Output (`uv.mkProject`)](#cookbook-1-pure-nix-python-project-with-sif--oci-output)
@@ -23,7 +24,8 @@ This page documents the complete public API and use-case cookbooks exported by `
    - [Cookbook 6: Building SIF Containers from Curated Registry Images](#cookbook-6-building-sif-containers-from-curated-registry-images)
    - [Cookbook 7: Advanced uv2nix Overrides (C++/CUDA Extensions)](#cookbook-7-advanced-uv2nix-overrides-ccuda-extensions)
    - [Cookbook 8: Writing Academic Papers (LaTeX & Typst)](#cookbook-8-writing-academic-papers-latex--typst)
-   - [Cookbook 9: Extending the Library via `p8n.extend`](#cookbook-9-extending-the-library-via-p8nextend)
+   - [Cookbook 9: Composing Multi-Environment Shells (Python + LaTeX)](#cookbook-9-composing-multi-environment-shells)
+   - [Cookbook 10: Extending the Library via `p8n.extend`](#cookbook-10-extending-the-library-via-p8nextend)
 5. [`flakeModule` Options Reference](#flakemodule-configuration-options)
 
 ---
@@ -238,6 +240,30 @@ Builds a PDF derivation using `typst compile`. Defaults to `main = "main.typ"` a
 
 #### `p8n.typst.mkWatch { name?, src, main?, output?, packages?, extraPackages? }`
 Returns a runnable application derivation (with `type = "app"`) that runs `typst watch` in continuous preview mode. Expose directly in `apps.<name>`.
+
+---
+
+### `p8n.composeShells`
+
+Composes multiple `devShells` into a unified, conflict-free development environment while preserving the base shell's accelerator `stdenv` (e.g. GCC/CUDA compatibility) and automatically concatenating all environment variables and `shellHook` activation scripts.
+
+Aliases: `p8n.combineShells`, `p8n.mergeShells`.
+
+```nix
+# Short syntax (list):
+p8n.composeShells [ baseShell shellA shellB ... ]
+
+# Extended syntax (attrset):
+p8n.composeShells {
+  base = config.devShells.cu128; # Primary shell determining stdenv (optional if `shells` provided)
+  shells = [ config.devShells.paper ]; # Additional shells to merge via inputsFrom
+  name = "custom-combined-name";       # Override the derivation name (optional)
+  packages = [ pkgs.htop ];            # Extra one-off tools (optional)
+  env = { VAR = "value"; };            # Extra environment variables (exported in shellHook) (optional)
+  shellHook = ''echo "Ready!"'';        # Extra startup commands (optional)
+  preCommit = config.pre-commit;       # Pre-commit hooks (auto-inherited when using formatting module) (optional)
+}
+```
 
 ---
 
@@ -497,7 +523,41 @@ perSystem = { pkgs, p8n, ... }: {
 
 ---
 
-### Cookbook 9: Extending the Library via `p8n.extend`
+### Cookbook 9: Composing Multi-Environment Shells (Python + LaTeX)
+
+Combine a full GPU Python training environment with a TeX Live / Typst paper writing environment into a single `devShells.default`:
+
+```nix
+perSystem = { config, p8n, ... }:
+let
+  pyproject = p8n.uv.readProject ./.;
+  paper = p8n.latex.readProject {
+    src = ./paper;
+    texlive = "2024";
+  };
+in
+{
+  devShells = {
+    # Standalone environments
+    cu128 = pyproject.mkShell {
+      accelerator = "cuda12_8";
+    };
+
+    paper = paper.mkShell { };
+
+    # Combined master shell:
+    # Preserves CUDA stdenv/LD_LIBRARY_PATH from cu128 while pulling in TeX Live from paper!
+    default = p8n.composeShells [
+      config.devShells.cu128
+      config.devShells.paper
+    ];
+  };
+};
+```
+
+---
+
+### Cookbook 10: Extending the Library via `p8n.extend`
 
 Add custom lab helpers or wrap default builders:
 

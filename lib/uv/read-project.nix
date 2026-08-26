@@ -520,8 +520,6 @@ let
           ++ (resolvePkgs extraPackages)
           ++ (internal.preCommit.packages preCommit);
 
-        env = accelConfig.environment.variables // env;
-
         shellHook = ''
           ${internal.nixLdHook pkgs' libPath}
 
@@ -539,7 +537,7 @@ let
           unset _nvlib
           export LD_LIBRARY_PATH
 
-          ${internal.exportEnv accelConfig.environment.variables}
+          ${internal.exportEnv (accelConfig.environment.variables // env)}
           ${internal.repoRootHook}
           ${internal.hostGpuHook nixglhost}
           ${accelConfig.shellHook}

@@ -27,6 +27,9 @@ let
           config
           internal
           ;
+        composeShells = import ./compose-shells.nix context;
+        combineShells = self.composeShells;
+        mergeShells = self.composeShells;
         container = import ./container context;
         accelerator = import ./accelerator context;
         uv = import ./uv context;

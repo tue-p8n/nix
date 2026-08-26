@@ -10,16 +10,14 @@
   lib,
 }:
 let
-  project = (lib pkgs).uv.mkProject {
-    name = "fixture";
-    workspaceRoot = ./fixtures/uv2nix-fixture;
-  };
+  project = (lib pkgs).uv.readProject ./fixtures/uv2nix-fixture;
+  venv = project.mkVenv { editable = false; };
 in
 pkgs.runCommand "uv2nix-check" {
   passthru = {
-    inherit (project) venv oci sif;
+    inherit venv;
   };
 } ''
-  ${project.venv}/bin/python -c "import fixture, iniconfig"
+  ${venv}/bin/python -c "import fixture, iniconfig"
   touch $out
 ''

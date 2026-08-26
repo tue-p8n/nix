@@ -64,16 +64,6 @@ rec {
           ++ (resolvePkgs extraPackages)
           ++ (internal.preCommit.packages preCommit);
 
-        env =
-          accelConfig.environment.variables
-          // {
-            UV_NO_SYNC = "1";
-            UV_LOCKED = "1";
-            UV_PYTHON_PREFERENCE = "only-managed";
-            UV_PYTHON_DOWNLOADS = "auto";
-          }
-          // env;
-
         shellHook = ''
           ${internal.nixLdHook pkgs' libPath}
 
@@ -88,7 +78,12 @@ rec {
           export LIBRARY_PATH="${libPath}:$LIBRARY_PATH"
           export LD_LIBRARY_PATH="${libPath}:$LD_LIBRARY_PATH"
 
-          ${internal.exportEnv accelConfig.environment.variables}
+          export UV_NO_SYNC="1"
+          export UV_LOCKED="1"
+          export UV_PYTHON_PREFERENCE="only-managed"
+          export UV_PYTHON_DOWNLOADS="auto"
+
+          ${internal.exportEnv (accelConfig.environment.variables // env)}
           ${internal.repoRootHook}
           ${internal.hostGpuHook nixglhost}
           ${accelConfig.shellHook}

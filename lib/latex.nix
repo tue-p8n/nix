@@ -85,10 +85,6 @@ rec {
     pkgs.mkShell (
       passThroughAttrs
       // {
-        env = env // {
-          LATEX_ENV_ACTIVE = "1";
-        };
-
         packages =
           [ tex ]
           ++ packages
@@ -96,6 +92,8 @@ rec {
           ++ (internal.preCommit.packages preCommit);
 
         shellHook = ''
+          export LATEX_ENV_ACTIVE="1"
+          ${internal.exportEnv env}
           echo " >>> LaTeX environment activated"
           ${internal.preCommit.hook preCommit}
           ${shellHook}
