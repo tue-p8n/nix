@@ -480,6 +480,7 @@ let
                 + ''
                   if [ -f pyproject.toml ]; then
                     sed -i -E 's/^[[:space:]]*license[[:space:]]*=[[:space:]]*["'"'"']([^"'"'"']+)["'"'"']/license = { text = "\1" }/g' pyproject.toml 2>/dev/null || true
+                    sed -i -E 's/^[[:space:]]*license-files[[:space:]]*=.*//g' pyproject.toml 2>/dev/null || true
                   fi
                 '';
             })
