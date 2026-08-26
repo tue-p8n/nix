@@ -51,6 +51,22 @@ let
       "setuptools"
       "wheel"
     ];
+    laco = [
+      "setuptools"
+      "wheel"
+    ];
+    laco-torch = [
+      "setuptools"
+      "wheel"
+    ];
+    laco-typer = [
+      "setuptools"
+      "wheel"
+    ];
+    laco-submitit = [
+      "setuptools"
+      "wheel"
+    ];
   };
 
   defaultCrossWheelLinkingPackages = [
