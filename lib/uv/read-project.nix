@@ -151,6 +151,7 @@ let
       accelConfig = config.build pkgs resolvedAccelerator;
       pkgs' = accelConfig.pkgs;
       resolvedPython = if python != null then python else pkgs'.python313;
+      tag = accelConfig.name;
 
       knownPackages = builtins.attrNames (workspace.deps.optionals or { });
       packageFound = builtins.elem name knownPackages;
