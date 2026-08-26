@@ -64,7 +64,7 @@ in
 
       # Pre-commit git hooks wrapping treefmt and standard hygiene checks.
       pre-commit.settings = {
-        package = lib.mkDefault pkgs.prek;
+        package = lib.mkOverride 900 pkgs.prek;
         hooks = {
           treefmt = {
             enable = lib.mkDefault true;
