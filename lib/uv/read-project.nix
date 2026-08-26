@@ -319,6 +319,9 @@ let
           // {
             ${name} = base.${name}.overrideAttrs (old: {
               nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs'.python3Packages.editables ];
+              preConfigure =
+                (old.preConfigure or "")
+                + "\nexport PYTHONPATH=\"${pkgs'.python3Packages.editables}/${resolvedPython.sitePackages}:''${PYTHONPATH:-}\"";
             });
           };
 
