@@ -152,7 +152,9 @@ let
       pkgs' = accelConfig.pkgs;
       resolvedPython = if python != null then python else pkgs'.python313;
 
-      tag = accelConfig.name;
+      knownPackages = builtins.attrNames (workspace.deps.optionals or { });
+      packageFound = builtins.elem name knownPackages;
+      availableExtras = if packageFound then (workspace.deps.optionals.${name} or [ ]) else [ ];
 
       resolvedExtras =
         if extras != null then
@@ -165,11 +167,11 @@ let
               else
                 accelConfig.environment.variables.UV_TORCH_BACKEND or "cpu";
           in
-          [ accelExtra ];
+          if packageFound && builtins.elem accelExtra availableExtras then
+            [ accelExtra ]
+          else
+            [ ];
 
-      knownPackages = builtins.attrNames (workspace.deps.optionals or { });
-      packageFound = builtins.elem name knownPackages;
-      availableExtras = if packageFound then (workspace.deps.optionals.${name} or [ ]) else [ ];
       missingExtras = builtins.filter (ext: !builtins.elem ext availableExtras) resolvedExtras;
 
       validate =
