@@ -26,6 +26,7 @@ rec {
       name,
       workspaceRoot,
       accelerator ? "cpu",
+      editable ? true,
       pkgs ? defaultPkgs,
       python ? null,
       extras ? null,
@@ -202,6 +203,11 @@ rec {
         dependencies = pyprojectDeps;
       };
 
+      # Editable overlay for development shell
+      editableOverlay = workspace.mkEditablePyprojectOverlay {
+        root = "$REPO_ROOT";
+      };
+
       # Python set
       pythonSet =
         (pkgs'.callPackage pyprojectNix.build.packages {
@@ -218,7 +224,15 @@ rec {
             ]
           );
 
+      editablePythonSet = pythonSet.overrideScope editableOverlay;
+
+      # Immutable virtualenv for OCI/SIF and production builds
       venv = pythonSet.mkVirtualEnv "${name}-venv" pyprojectDeps;
+
+      # Development virtualenv with editable workspace roots
+      editableVenv = editablePythonSet.mkVirtualEnv "${name}-editable-venv" pyprojectDeps;
+
+      activeVenv = if editable then editableVenv else venv;
 
       libPath = pkgs'.lib.makeLibraryPath (accelConfig.libraries.packages ++ extraLibs);
       passThroughAttrs = stripCustomArgs mkProject args;
@@ -236,7 +250,9 @@ rec {
       inherit
         workspace
         pythonSet
+        editablePythonSet
         venv
+        editableVenv
         oci
         sif
         ;
@@ -253,7 +269,7 @@ rec {
               git
               just
             ])
-            ++ [ venv ]
+            ++ [ activeVenv ]
             ++ nixglPkg
             ++ (resolvePkgs packages)
             ++ (resolvePkgs extraPackages);
@@ -266,12 +282,12 @@ rec {
             unset PYTHONPATH
 
             export UV_PYTHON_DOWNLOADS=never
-            export UV_PYTHON="${venv}/bin/python"
+            export UV_PYTHON="${activeVenv}/bin/python"
             export UV_NO_SYNC=1
-            export VIRTUAL_ENV="${venv}"
+            export VIRTUAL_ENV="${activeVenv}"
             export LD_LIBRARY_PATH="${libPath}:$LD_LIBRARY_PATH"
 
-            for _nvlib in "${venv}"/lib/python*/site-packages/nvidia/*/lib; do
+            for _nvlib in "${activeVenv}"/lib/python*/site-packages/nvidia/*/lib; do
               [ -d "$_nvlib" ] && LD_LIBRARY_PATH="$_nvlib:$LD_LIBRARY_PATH"
             done
             unset _nvlib
@@ -290,8 +306,8 @@ rec {
 
           passthru = passthru // {
             config = accelConfig;
-            inherit venv;
-            inherit pythonSet;
+            inherit venv editableVenv;
+            inherit pythonSet editablePythonSet;
             inherit workspace;
             inherit oci;
             inherit sif;
