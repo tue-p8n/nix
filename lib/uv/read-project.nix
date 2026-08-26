@@ -200,7 +200,7 @@ let
       missingBuildSystems ? { },
       crossWheelLinkingPackages ? [ ],
       ...
-    }:
+    }@args:
     let
       resolvedAccelerator =
         if builtins.isFunction accelerator then
