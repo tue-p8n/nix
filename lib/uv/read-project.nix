@@ -27,6 +27,10 @@ let
       "setuptools"
       "wheel"
     ];
+    calver = [
+      "setuptools"
+      "wheel"
+    ];
     deformops = [
       "setuptools"
       "wheel"
@@ -310,7 +314,7 @@ let
             postPatch =
               (old.postPatch or "")
               + ''
-                sed -i '/license = /d' pyproject.toml 2>/dev/null || true
+                sed -i -E 's/^[[:space:]]*license[[:space:]]*=[[:space:]]*["'"'"']([^"'"'"']+)["'"'"']/license = { text = "\1" }/g' pyproject.toml 2>/dev/null || true
               '';
           });
         })
@@ -319,7 +323,7 @@ let
             postPatch =
               (old.postPatch or "")
               + ''
-                sed -i '/license = /d' pyproject.toml 2>/dev/null || true
+                sed -i -E 's/^[[:space:]]*license[[:space:]]*=[[:space:]]*["'"'"']([^"'"'"']+)["'"'"']/license = { text = "\1" }/g' pyproject.toml 2>/dev/null || true
               '';
           });
         })
