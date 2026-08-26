@@ -464,6 +464,29 @@ let
           });
         });
 
+      overrideLicenseFix =
+        _: prev:
+        lib.mapAttrs (
+          pkgName: pkg:
+          let
+            buildBackend = pkg.passthru.project.build-system.build-backend or "";
+            isSetuptools = (lib.hasPrefix "setuptools" buildBackend) || (lib.hasPrefix "_pyyaml" buildBackend) || (prev ? ${pkgName} && allMissingBuildSystems ? ${pkgName});
+            isFlit = lib.hasPrefix "flit" buildBackend || pkgName == "flit-core" || pkgName == "flit_core";
+          in
+          if pkg ? overrideAttrs && (pkg.passthru.format or null) == "pyproject" && isSetuptools && !isFlit then
+            pkg.overrideAttrs (old: {
+              postPatch =
+                (old.postPatch or "")
+                + ''
+                  if [ -f pyproject.toml ]; then
+                    sed -i -E 's/^[[:space:]]*license[[:space:]]*=[[:space:]]*["'"'"']([^"'"'"']+)["'"'"']/license = { text = "\1" }/g' pyproject.toml 2>/dev/null || true
+                  fi
+                '';
+            })
+          else
+            pkg
+        ) prev;
+
       userOverlays = baseOverlays ++ (normalizeOverlays overlays);
 
       pythonSet =
@@ -483,6 +506,7 @@ let
                 overrideCrossWheelLinkingPackages
                 overrideAutoTorch
                 overrideSpecial
+                overrideLicenseFix
               ]
               ++ userOverlays
             )
