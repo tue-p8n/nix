@@ -218,11 +218,31 @@ let
 
       overrideSpecial =
         _: prev:
-        lib.optionalAttrs (prev ? numba) {
+        (lib.optionalAttrs (prev ? numba) {
           numba = prev.numba.overrideAttrs (old: {
             buildInputs = (old.buildInputs or [ ]) ++ [ pkgs'.tbb ];
           });
-        };
+        })
+        // (lib.optionalAttrs (prev ? opencv-python && (prev ? opencv-python-headless || prev ? opencv-contrib-python-headless)) {
+          # When both GUI and headless OpenCV packages are present in the environment,
+          # drop cv2 from opencv-python to avoid mkVirtualEnv collision errors.
+          opencv-python = prev.opencv-python.overrideAttrs (old: {
+            postInstall =
+              (old.postInstall or "")
+              + ''
+                rm -rf "$out/${resolvedPython.sitePackages}/cv2"
+              '';
+          });
+        })
+        // (lib.optionalAttrs (prev ? opencv-contrib-python && prev ? opencv-contrib-python-headless) {
+          opencv-contrib-python = prev.opencv-contrib-python.overrideAttrs (old: {
+            postInstall =
+              (old.postInstall or "")
+              + ''
+                rm -rf "$out/${resolvedPython.sitePackages}/cv2"
+              '';
+          });
+        });
 
       userOverlays = baseOverlays ++ (normalizeOverlays overlays);
 
