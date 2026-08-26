@@ -141,6 +141,16 @@ let
       "setuptools"
       "wheel"
     ];
+    vcs-versioning = [
+      "setuptools"
+      "wheel"
+      "packaging"
+    ];
+    vcs_versioning = [
+      "setuptools"
+      "wheel"
+      "packaging"
+    ];
   };
 
   defaultCrossWheelLinkingPackages = [
