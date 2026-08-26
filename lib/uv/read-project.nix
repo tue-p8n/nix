@@ -505,7 +505,7 @@ let
     (pkgs'.mkShell.override { inherit (accelConfig) stdenv; }) (
       passThroughAttrs
       // {
-        name = "${name}-project-${tag}";
+        name = "${name}-${tag}";
 
         packages =
           accelConfig.packages
@@ -544,7 +544,7 @@ let
 
           export TORCH_EXTENSIONS_DIR="''${TORCH_EXTENSIONS_DIR:-$REPO_ROOT/.torch-extensions/${name}-${tag}}"
 
-          echo " >>> UV (project) shell activated: $(uv --version) [${tag}]"
+          echo " >>> UV shell activated: $(uv --version) [${tag}]"
           ${internal.preCommit.hook preCommit}
           ${shellHook}
         '';

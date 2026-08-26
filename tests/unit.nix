@@ -584,7 +584,7 @@ let
           composed = p8nInstance.composeShells [ shell1 shell2 ];
         in
         (builtins.length composed.inputsFrom == 1)
-        && (composed.name == "shell-1")
+        && (composed.name == "shell-1-latex-shell")
         && (composed.passthru ? config)
         && (composed.passthru ? tex);
       expected = true;
@@ -683,6 +683,16 @@ let
         && (builtins.length composed.inputsFrom == 3);
       expected = true;
     };
+    testComposeShellsSynthesizesMultiDomainName = {
+      expr =
+        let
+          cu128 = p8nInstance.uv.mkShell { name = "myproj"; accelerator = "cuda12_8"; };
+          paper = p8nInstance.latex.mkShell { name = "paper-shell"; };
+          composed = p8nInstance.composeShells [ cu128 paper ];
+        in
+        composed.name;
+      expected = "myproj-paper-cuda128";
+    };
     testComposeShellsWithoutPassthruWorks = {
       expr =
         let
@@ -690,7 +700,7 @@ let
           plainOther = mockPkgs.mkShell { name = "plain-other"; };
           composed = p8nInstance.composeShells [ plainBase plainOther ];
         in
-        (composed.name == "plain-base")
+        (composed.name == "plain-base-plain-other-shell")
         && (builtins.length composed.inputsFrom == 1);
       expected = true;
     };

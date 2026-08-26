@@ -65,11 +65,12 @@ in
 rec {
   mkShell =
     {
+      name ? "latex-shell",
       pkgs ? defaultPkgs,
       texlive ? (if version != null then version else "default"),
       version ? null,
       texpkgs ? defaultTexpkgs,
-      packages ? (with pkgs; [ cacert ]),
+      packages ? [ ],
       extraPackages ? [ ],
       shellHook ? "",
       preCommit ? (args.self.preCommit or null),
@@ -85,6 +86,8 @@ rec {
     pkgs.mkShell (
       passThroughAttrs
       // {
+        inherit name;
+
         packages =
           [ tex ]
           ++ packages
@@ -103,6 +106,7 @@ rec {
           inherit tex;
           p8n = {
             category = "latex";
+            name = name;
             texlive = if builtins.isString texlive then texlive else "custom";
             inherit tex;
           };
@@ -330,9 +334,15 @@ rec {
 
       mkShell =
         shellArgs:
+        let
+          args' = if builtins.isAttrs shellArgs then shellArgs else { };
+        in
         mkSh (
-          customArgs
-          // (if builtins.isAttrs shellArgs then shellArgs else { })
+          {
+            name = "${inferredName}-shell";
+          }
+          // customArgs
+          // args'
         );
 
       mkWatch =

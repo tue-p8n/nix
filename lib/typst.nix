@@ -17,6 +17,7 @@ in
 rec {
   mkShell =
     {
+      name ? "typst-shell",
       pkgs ? defaultPkgs,
       packages ? (
         with pkgs;
@@ -38,6 +39,8 @@ rec {
     pkgs.mkShell (
       passThroughAttrs
       // {
+        inherit name;
+
         packages =
           [ pkgs.typst ]
           ++ packages
@@ -56,6 +59,7 @@ rec {
           typst = pkgs.typst;
           p8n = {
             category = "typst";
+            name = name;
             typst = pkgs.typst;
           };
         };
@@ -213,9 +217,15 @@ rec {
 
       mkShell =
         shellArgs:
+        let
+          args' = if builtins.isAttrs shellArgs then shellArgs else { };
+        in
         mkSh (
-          customArgs
-          // (if builtins.isAttrs shellArgs then shellArgs else { })
+          {
+            name = "${inferredName}-shell";
+          }
+          // customArgs
+          // args'
         );
 
       mkWatch =
