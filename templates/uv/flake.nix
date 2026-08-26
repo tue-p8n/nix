@@ -41,19 +41,27 @@
           p8n,
           ...
         }:
-        {
-          # Interactive UV shell (run `uv sync` inside)
-          devShells.default = p8n.uv.mkShell {
+        let
+          pyproject = p8n.uv.readProject {
             name = "my-research-project";
+            workspaceRoot = ./.;
+          };
+        in
+        {
+          # Interactive development shell (editable local install by default)
+          devShells.default = pyproject.mkShell {
             accelerator = "cuda";
           };
 
-          # Pure Nix virtual environment via uv2nix
-          packages.default = (p8n.uv.mkProject {
-            name = "my-research-project";
-            workspaceRoot = ./.;
+          # Pure Nix virtual environment
+          packages.default = pyproject.mkVenv {
             accelerator = "cuda";
-          }).venv;
+          };
+
+          # Apptainer SIF container ready for HPC cluster execution
+          packages.sif = pyproject.mkSIF {
+            accelerator = "cuda";
+          };
         };
     };
 }

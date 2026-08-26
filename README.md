@@ -115,25 +115,32 @@ When using `flake-parts`, import the desired `tue-p8n.flakeModules`. The library
       ];
       systems = [ "x86_64-linux" ];
 
-      perSystem = { pkgs, p8n, ... }: {
-        # 1. Interactive UV development shell
-        devShells.default = p8n.uv.mkShell {
+        # 1. Interactive UV development shell (dynamic uv add / uv sync)
+        devShells.uv-shell = p8n.uv.mkShell {
           accelerator = "cuda12_9";
           extraPackages = [ pkgs.just ];
         };
 
-        # 2. Pure Nix virtualenv & HPC Container Images via uv2nix
+        # 2. Pure Nix virtualenv & HPC Container Images via readProject
         let
-          project = p8n.uv.mkProject {
+          pyproject = p8n.uv.readProject {
             name = "my-project";
             workspaceRoot = ./.;
-            accelerator = "cuda12_9";
           };
         in
         {
-          packages.default = project.venv;
-          packages.docker = project.oci;
-          packages.sif = project.sif; # Ready for Snellius/Apptainer HPC!
+          devShells.default = pyproject.mkShell {
+            accelerator = "cuda12_9"; # Editable local install by default
+          };
+          packages.default = pyproject.mkVenv {
+            accelerator = "cuda12_9";
+          };
+          packages.docker = pyproject.mkOCI {
+            accelerator = "cuda12_9";
+          };
+          packages.sif = pyproject.mkSIF {
+            accelerator = "cuda12_9"; # Ready for Snellius/Apptainer HPC!
+          };
         };
 
         # 3. Paper compilation
@@ -183,7 +190,7 @@ We provide builders for both **Apptainer/Singularity SIF files** and **layered O
 ### 1. Build an Apptainer SIF container directly
 
 ```bash
-# Build from your project (p8n.uv.mkProject or p8n.container.mkSIF)
+# Build from your project (p8n.uv.readProject or p8n.container.mkSIF)
 nix build .#sif
 # Generates ./result, which is the self-contained .sif image
 ```

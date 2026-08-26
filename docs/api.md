@@ -133,13 +133,38 @@ Python environment builders powered by [uv](https://github.com/astral-sh/uv) and
 #### `p8n.uv.mkShell { accelerator?, name?, packages?, extraPackages?, env?, shellHook?, passthru? }`
 Interactive development shell with `uv`, compiler toolchains, `nix-ld` host GPU bindings, and `UV_TORCH_BACKEND` configured. Dependency resolution is performed interactively via runtime `uv sync`.
 
-#### `p8n.uv.readProject (workspaceRoot | { workspaceRoot, ... })`
-Inspects a UV project workspace once and returns an object exposing metadata, hardware inference, and target builders:
-- **`.inferAccelerator (package? | { package?, extras? })`**: Automatically analyzes the locked dependency graph in `uv.lock` for the target package (defaults to `"torch"`), inspecting `cuda-toolkit`, `cuda-bindings`, `rocm-core`, and wheel tags. Returns a typed accelerator config set (e.g. `{ acceleration = "cuda"; cuda.version = "13.2"; }` or `{ acceleration = "none"; }`).
-- **`.build { name, accelerator?, ... }`**: Builds `{ shell, venv, oci, sif, pythonSet, workspace }`.
-- **`.mkShell { name, accelerator?, ... }`**: Shortcut for `(project.build args).shell`.
-- **`.mkOCI { name, accelerator?, ... }`**: Shortcut for `(project.build args).oci`.
-- **`.mkSIF { name, accelerator?, ... }`**: Shortcut for `(project.build args).sif`.
+#### `p8n.uv.readProject (workspaceRoot | { workspaceRoot, name?, overlays?, missingBuildSystems?, crossWheelLinkingPackages?, extraLibs? })`
+Inspects a UV project workspace once and returns an object exposing metadata, hardware inference, and specialized target builders:
+
+- **`.mkVenv { accelerator?, editable?, python?, extras?, overlays?, missingBuildSystems?, crossWheelLinkingPackages?, extraLibs? }`**:
+  Builds a pure Nix Python virtual environment derivation.
+  - `accelerator` (default `"cpu"`): Shorthand string (`"cpu"`, `"cuda"`, `"cuda12_8"`, `"rocm"`), config set, or resolver function (`project.inferAccelerator "torch"`).
+  - `editable` (default `false`): When `false`, all packages (workspace members and dependencies) are built into immutable `/nix/store/` paths.
+  - `overlays` (`[final: prev: ...] | (final: prev: ...)`, default `[]`): Custom Python scope overlays.
+  - `extras` (`[string] | null`, default `null`): Python extras to enable. When `null`, automatically selects the backend extra from `accelerator` (e.g. `["cu129"]`, `["rocm"]`, `["cpu"]`).
+
+- **`.mkShell { accelerator?, editable?, python?, extras?, packages?, extraPackages?, env?, shellHook?, preCommit?, overlays? }`**:
+  Builds an interactive development shell derivation (`nix develop`).
+  - `editable` (default `true`): Automatically installs local workspace packages in PEP 660 editable mode linked to `$REPO_ROOT`, allowing live edits without rebuilds.
+
+- **`.mkOCI { accelerator?, editable?, tag?, packages?, extraPackages?, extraLibs?, env?, cmd?, entrypoint?, maxLayers?, venv? }`**:
+  Builds a layered OCI/Docker container image derivation using `dockerTools.buildLayeredImage`.
+  - `editable` (default `false`): When `false`, self-contained image ready for distribution. Can be set to `true` for development containers with volume bind mounts.
+
+- **`.mkSIF { accelerator?, editable?, pkgs?, ... }`**:
+  Builds an Apptainer / Singularity `.sif` image derivation ready for HPC cluster execution (e.g. on Snellius with `apptainer run --nv`).
+
+- **`.inferAccelerator (package? | { package?, extras? })`**:
+  Automatically analyzes the locked dependency graph in `uv.lock` for the target package (defaults to `"torch"`), inspecting `cuda-toolkit`, `cuda-bindings`, `rocm-core`, and wheel tags. Returns a typed accelerator config set.
+
+- **Built-in Auto-Fixups**:
+  - **OpenCV Collisions**: Automatically resolves `site-packages/cv2` conflicts when both GUI (`opencv-python`) and headless (`opencv-python-headless`) packages exist in dependencies.
+  - **Missing Build Systems**: Automatically injects missing build dependencies (`setuptools`, `wheel`) for legacy sdists.
+  - **Cross-Wheel Dynamic Linking**: Patchelf auto-ignore rules for packages that dynamically link across separate wheels (`torch`, `nvidia-*`, `torchvision`, `triton`, `xformers`, `deformops`).
+  - **Numba TBB**: Automatically links Intel TBB for multi-core performance.
+
+#### `p8n.uv.mkProject`
+Compatibility helper that delegates directly to `(p8n.uv.readProject args).mkShell { }`.
 
 #### `p8n.uv.inferAccelerator (package | { workspaceRoot, package?, extras? })`
 Standalone helper that can be called directly or passed as a resolver function to `accelerator = p8n.uv.inferAccelerator "torch"`.
@@ -147,20 +172,8 @@ Standalone helper that can be called directly or passed as a resolver function t
 #### `p8n.uv.mkFHS { accelerator?, name?, packages?, extraPackages?, profile?, passthru? }`
 FHS container flavor for Python tooling requiring full FHS filesystem emulation.
 
-#### `p8n.uv.mkProject { name, workspaceRoot, accelerator?, python?, extras?, overrides?, packages?, extraPackages?, env?, shellHook?, missingBuildSystems?, crossWheelLinkingPackages?, extraLibs? }`
-Builds the project's **entire** Python virtual environment hermetically as Nix derivations via `uv2nix` (zero runtime `uv sync`). Requires `pyproject.toml` and a committed `uv.lock`. `accelerator` can be a shorthand string (`"cpu"`, `"cuda"`, `"cuda12_8"`, `"rocm"`), an explicit configuration attribute set, or an inference resolver function (`p8n.uv.inferAccelerator "torch"`).
-
-- **`extras`** (`[string] | null`, default `null`): Python extras to enable. When `null` (default), automatically derives the backend extra from `accelerator` (e.g. `["cu129"]`, `["rocm"]`, `["cpu"]`). Specify explicitly (e.g. `extras = [ "cu129" ]` or `extras = [ "cu129" "dev" ]`) when selecting specific wheels or multiple extras. Set `extras = [ ]` to disable all extra injection.
-
-Returns `{ shell, venv, oci, sif, pythonSet, workspace }`:
-- `shell`: The interactive development shell derivation (`nix develop`).
-- `venv`: The fully built virtual environment derivation (`nix build`).
-- `oci`: A layered OCI / Docker archive derivation ready for `docker load` or registry publication.
-- `sif`: A pre-built Apptainer / Singularity `.sif` image derivation ready for HPC cluster execution.
-- `pythonSet`, `workspace`: Underlying uv2nix structures.
-
 #### `p8n.uv.mkOCI { name, venv, tag?, accelerator?, packages?, extraPackages?, extraLibs?, env?, cmd?, entrypoint?, maxLayers? }`
-Builds a layered OCI/Docker container image derivation containing the Python virtualenv, host dynamic libraries, and hardware paths using `dockerTools.buildLayeredImage`.
+Standalone low-level builder that wraps a pre-existing `venv` into a layered OCI/Docker container image derivation using `dockerTools.buildLayeredImage`.
 
 ---
 
@@ -233,7 +246,7 @@ The configuration engine evaluates and resolves hardware accelerator targets:
 
 ### Cookbook 1: Pure-Nix Python Project with SIF & OCI Output
 
-Use `p8n.uv.mkProject` when you want a completely reproducible Python project driven by `uv.lock`. `nix develop` drops you straight into a pre-populated environment with zero `uv sync` step, and `nix build` produces both local venvs and HPC containers:
+Use `p8n.uv.readProject` when you want a completely reproducible Python project driven by `uv.lock`. `nix develop` drops you straight into an editable environment with zero `uv sync` step, and `nix build` produces both local venvs and HPC containers:
 
 ```nix
 {
@@ -250,24 +263,31 @@ Use `p8n.uv.mkProject` when you want a completely reproducible Python project dr
 
       perSystem = { pkgs, p8n, ... }:
         let
-          project = p8n.uv.mkProject {
+          pyproject = p8n.uv.readProject {
             name = "my-research";
             workspaceRoot = ./.;
-            accelerator = "cuda12_9";
           };
         in
         {
-          # Interactive shell (zero runtime sync)
-          devShells.default = project.shell;
+          # Interactive shell (editable local install by default)
+          devShells.default = pyproject.mkShell {
+            accelerator = "cuda12_9";
+          };
 
           # Virtual environment derivation
-          packages.default = project.venv;
+          packages.default = pyproject.mkVenv {
+            accelerator = "cuda12_9";
+          };
 
           # Layered OCI image: `nix build .#docker`
-          packages.docker = project.oci;
+          packages.docker = pyproject.mkOCI {
+            accelerator = "cuda12_9";
+          };
 
           # Apptainer SIF container for HPC: `nix build .#sif`
-          packages.sif = project.sif;
+          packages.sif = pyproject.mkSIF {
+            accelerator = "cuda12_9";
+          };
         };
     };
 }

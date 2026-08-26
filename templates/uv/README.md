@@ -23,8 +23,8 @@ direnv allow                  # or run once for automatic activation on cd
 
 ## Pick an accelerator
 
-`flake.nix` configures `p8n.uv.mkShell` and `p8n.uv.mkProject`.
-Change `accelerator` to one of:
+`flake.nix` configures `p8n.uv.readProject` with `pyproject.mkShell`, `pyproject.mkVenv`, and `pyproject.mkSIF`.
+Change `accelerator` in `flake.nix` to one of:
 
 | Selector                                   | Meaning                                    |
 | ------------------------------------------- | ------------------------------------------- |
