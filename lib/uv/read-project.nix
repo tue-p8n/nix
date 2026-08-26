@@ -304,26 +304,9 @@ let
         dependencies = pyprojectDeps;
       };
 
-      rawEditableOverlay = workspace.mkEditablePyprojectOverlay {
+      editableOverlay = workspace.mkEditablePyprojectOverlay {
         root = "$REPO_ROOT";
       };
-      editableOverlay =
-        final: prev:
-        let
-          base = rawEditableOverlay final prev;
-        in
-        if !(base ? ${name}) then
-          base
-        else
-          base
-          // {
-            ${name} = base.${name}.overrideAttrs (old: {
-              nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs'.python3Packages.editables ];
-              preConfigure =
-                (old.preConfigure or "")
-                + "\nexport PYTHONPATH=\"${pkgs'.python3Packages.editables}/${resolvedPython.sitePackages}:''${PYTHONPATH:-}\"";
-            });
-          };
 
       allMissingBuildSystems = baseMissingBuildSystems // missingBuildSystems;
       overrideMissingBuildSystems =
@@ -478,6 +461,18 @@ let
               + ''
                 rm -rf "$out/${resolvedPython.sitePackages}/cv2"
               '';
+          });
+        })
+        // (lib.optionalAttrs (prev ? hatchling) {
+          hatchling = prev.hatchling.overrideAttrs (old: {
+            passthru = (old.passthru or { }) // {
+              dependencies = (old.passthru.dependencies or { }) // {
+                editables = [ ];
+                pathspec = [ ];
+                pluggy = [ ];
+                trove-classifiers = [ ];
+              };
+            };
           });
         });
 
