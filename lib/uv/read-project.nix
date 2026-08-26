@@ -87,14 +87,26 @@ let
 
   workspace = uv2nix.lib.workspace.loadWorkspace { inherit workspaceRoot; };
 
-  discoveredPackages = builtins.attrNames (workspace.deps.optionals or { });
-  defaultName =
-    if discoveredPackages != [ ] then
-      builtins.head discoveredPackages
+  pyprojectPath = workspaceRoot + "/pyproject.toml";
+  pyprojectToml =
+    if builtins.pathExists pyprojectPath then
+      builtins.fromTOML (builtins.readFile pyprojectPath)
     else
-      "project";
+      { };
 
-  projectName = projectArgs.name or defaultName;
+  discoveredPackages = builtins.attrNames (workspace.deps.optionals or { });
+
+  inferredName =
+    pyprojectToml.project.name or (
+      pyprojectToml.tool.poetry.name or (
+        if discoveredPackages != [ ] then
+          builtins.head discoveredPackages
+        else
+          "project"
+      )
+    );
+
+  projectName = projectArgs.name or inferredName;
 
   baseOverlays = normalizeOverlays (projectArgs.overlays or [ ]);
   baseMissingBuildSystems = defaultMissingBuildSystems // (projectArgs.missingBuildSystems or { });
