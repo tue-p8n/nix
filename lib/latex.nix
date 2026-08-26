@@ -163,6 +163,7 @@ rec {
           TEXINPUTS = ".:";
         };
 
+        nativeBuildInputs = [ tex ] ++ packages ++ extraPackages;
         buildInputs = [ tex ] ++ packages ++ extraPackages;
 
         buildPhase = ''
