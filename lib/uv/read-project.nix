@@ -121,6 +121,26 @@ let
       "wheel"
       "calver"
     ];
+    pyyaml-ft = [
+      "setuptools"
+      "wheel"
+    ];
+    pyyaml_ft = [
+      "setuptools"
+      "wheel"
+    ];
+    pyyaml = [
+      "setuptools"
+      "wheel"
+    ];
+    ruamel-yaml = [
+      "setuptools"
+      "wheel"
+    ];
+    ruamel_yaml = [
+      "setuptools"
+      "wheel"
+    ];
   };
 
   defaultCrossWheelLinkingPackages = [
