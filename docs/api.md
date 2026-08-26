@@ -249,19 +249,26 @@ Composes multiple `devShells` into a unified, conflict-free development environm
 
 Aliases: `p8n.combineShells`, `p8n.mergeShells`.
 
+#### Toolchain Slot Validation
+`composeShells` automatically verifies compatibility across composed shells:
+- **Python Slot (`category = "python"`)**: Prevents composing contradictory Python environments (e.g. a locked `uv2nix` pure-Nix virtualenv with an interactive dynamic `uv.mkShell` or `mamba` environment).
+- **Accelerator Slot (`category = "accelerator"`)**: Verifies that all non-CPU hardware acceleration targets match (e.g. catches conflicting CUDA versions such as `cu126` vs `cu128`).
+- **LaTeX Slot (`category = "latex"`)**: Verifies that TeX Live distributions are compatible.
+
 ```nix
-# Short syntax (list):
+# Short syntax (list — first shell acts as base):
 p8n.composeShells [ baseShell shellA shellB ... ]
 
 # Extended syntax (attrset):
 p8n.composeShells {
-  base = config.devShells.cu128; # Primary shell determining stdenv (optional if `shells` provided)
+  base = config.devShells.cu128;       # Primary shell determining stdenv (optional if `shells` is provided)
   shells = [ config.devShells.paper ]; # Additional shells to merge via inputsFrom
   name = "custom-combined-name";       # Override the derivation name (optional)
   packages = [ pkgs.htop ];            # Extra one-off tools (optional)
   env = { VAR = "value"; };            # Extra environment variables (exported in shellHook) (optional)
   shellHook = ''echo "Ready!"'';        # Extra startup commands (optional)
   preCommit = config.pre-commit;       # Pre-commit hooks (auto-inherited when using formatting module) (optional)
+  ignoreConflicts = false;             # Set true to bypass slot conflict checks if desired (optional)
 }
 ```
 

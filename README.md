@@ -18,6 +18,7 @@ management into a clean, modular library.
   - **Micromamba**: Robust FHS-sandboxed Conda-compatible environments for legacy C++/CUDA dependencies (`p8n.mamba.mkFHS`).
 - **Hybrid Runtimes**: Choose between **Native** shells with Nix-LD, **FHS** containers (max compatibility), or fully **Nix-native** environments built via [uv2nix](https://pyproject-nix.github.io/uv2nix/introduction.html) (hermetic, zero runtime `uv sync`).
 - **Document Systems**: Pre-configured builders and shells for **LaTeX** and **Typst**.
+- **DevShell Composition**: Conflict-free multi-toolchain devshell composition with automatic hardware accelerator and Python slot validation (`p8n.composeShells`).
 - **OCI Containers**: Standardized PyTorch images for cluster deployment.
 
 ## Quick Start
@@ -213,6 +214,7 @@ _Note: The `--nv` flag is essential to enable NVIDIA GPU acceleration inside the
   - `mamba/`: Micromamba FHS environment builder (`mkFHS`).
   - `container/`: Container registry utilities and SIF converters (`get`, `mkSIF` / `mkApptainer`).
   - `latex.nix`, `typst.nix`: Document building utilities (`mkShell`, `mkDocument`).
+  - `compose-shells.nix`: Devshell composition and toolchain conflict validation engine (`composeShells`).
 - `templates/`: Project templates (`uv`, `micromamba`, `latex`, `typst`).
 - `tests/`: Unit, derivation, and smoke tests run by `nix flake check`.
 - `docs/`: API reference and guides.
