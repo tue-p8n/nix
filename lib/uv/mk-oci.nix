@@ -69,7 +69,8 @@ rec {
             "SSL_CERT_FILE=${pkgs'.cacert}/etc/ssl/certs/ca-bundle.crt"
             "NIX_SSL_CERT_FILE=${pkgs'.cacert}/etc/ssl/certs/ca-bundle.crt"
             "TORCH_EXTENSIONS_DIR=/tmp/.torch-extensions"
-            "CUDA_VISIBLE_DEVICES=all"
+            "NVIDIA_VISIBLE_DEVICES=all"
+            "NVIDIA_DRIVER_CAPABILITIES=compute,utility"
             "VIRTUAL_ENV=${venv}"
             "UV_PYTHON=${venv}/bin/python"
           ] ++ (lib.mapAttrsToList (k: v: "${k}=${v}") (accelConfig.environment.variables // env));

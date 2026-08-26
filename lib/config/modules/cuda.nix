@@ -60,7 +60,6 @@ in
       stdenv = pkgs.cudaPackages.backendStdenv;
       packages = [ pkgs.cudaPackages.cudatoolkit ];
       environment.variables = {
-        CUDA_VISIBLE_DEVICES = "all";
         CUDA_HOME = "${pkgs.cudaPackages.cudatoolkit}";
         CUDA_PATH = "${pkgs.cudaPackages.cudatoolkit}";
         UV_TORCH_BACKEND = "cu${version'}";
