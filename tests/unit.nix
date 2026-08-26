@@ -105,6 +105,7 @@ let
               override = _: args: mkSh args;
             };
           stdenv = {
+            mkDerivation = args: args // { outPath = "/nix/store/mock-${args.name or "drv"}"; };
             hostPlatform = {
               system = "x86_64-linux";
             };
@@ -446,6 +447,22 @@ let
     testTypstMkDocumentExists = {
       expr = builtins.isFunction p8nInstance.typst.mkDocument;
       expected = true;
+    };
+    testLatexMkDocumentOptionalName = {
+      expr = (p8nInstance.latex.mkDocument { src = ./.; }).name;
+      expected = "document";
+    };
+    testLatexReadProjectInfersName = {
+      expr = (p8nInstance.latex.readProject ./fixtures/uv2nix-fixture).name;
+      expected = "uv2nix-fixture";
+    };
+    testTypstMkDocumentOptionalName = {
+      expr = (p8nInstance.typst.mkDocument { src = ./.; }).name;
+      expected = "document";
+    };
+    testTypstReadProjectInfersName = {
+      expr = (p8nInstance.typst.readProject ./fixtures/uv2nix-fixture).name;
+      expected = "uv2nix-fixture";
     };
 
     # Extend mechanism

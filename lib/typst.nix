@@ -64,7 +64,7 @@ rec {
 
   mkDocument =
     {
-      name,
+      name ? "document",
       src,
       pkgs ? defaultPkgs,
       main ? "main.typ",
@@ -102,7 +102,14 @@ rec {
           runHook preInstall
 
           mkdir -p $out
-          cp ${output} $out/
+
+          if [ -f "${output}" ]; then
+            target_name="${name}.pdf"
+            cp "${output}" "$out/$target_name"
+            if [ "${output}" != "$target_name" ]; then
+              ln -s "$target_name" "$out/${output}"
+            fi
+          fi
 
           runHook postInstall
         '';
@@ -164,6 +171,13 @@ rec {
           throw "p8n.typst.readProject: expected a src path or an attribute set containing `src`.";
 
       customArgs = if builtins.isAttrs args then args else { };
+      inferredName =
+        customArgs.name or (
+          if builtins.isPath src || builtins.isString src then
+            builtins.baseNameOf (toString src)
+          else
+            "document"
+        );
       defaultMain =
         if builtins.pathExists (src + "/main.typ") then
           "main.typ"
@@ -177,16 +191,23 @@ rec {
     in
     {
       inherit src;
+      name = inferredName;
       main = customArgs.main or defaultMain;
 
       mkDocument =
         docArgs:
+        let
+          args' = if builtins.isAttrs docArgs then docArgs else { };
+        in
         mkDoc (
-          customArgs
-          // docArgs
+          {
+            name = inferredName;
+          }
+          // customArgs
+          // args'
           // {
             inherit src;
-            main = docArgs.main or (customArgs.main or defaultMain);
+            main = args'.main or (customArgs.main or defaultMain);
           }
         );
 
@@ -194,17 +215,23 @@ rec {
         shellArgs:
         mkSh (
           customArgs
-          // shellArgs
+          // (if builtins.isAttrs shellArgs then shellArgs else { })
         );
 
       mkWatch =
         watchArgs:
+        let
+          args' = if builtins.isAttrs watchArgs then watchArgs else { };
+        in
         mkWch (
-          customArgs
-          // watchArgs
+          {
+            name = "${inferredName}-watch";
+          }
+          // customArgs
+          // args'
           // {
             inherit src;
-            main = watchArgs.main or (customArgs.main or defaultMain);
+            main = args'.main or (customArgs.main or defaultMain);
           }
         );
     };

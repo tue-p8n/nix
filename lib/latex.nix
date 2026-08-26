@@ -112,7 +112,7 @@ rec {
 
   mkDocument =
     {
-      name,
+      name ? "document",
       src,
       pkgs ? defaultPkgs,
       texlive ? (if version != null then version else "default"),
@@ -182,7 +182,23 @@ rec {
           runHook preInstall
 
           mkdir -p $out
-          cp *.pdf $out/
+
+          pdf_count=$(ls -1 *.pdf 2>/dev/null | wc -l)
+          if [ "$pdf_count" -eq 1 ]; then
+            orig_pdf=$(ls -1 *.pdf)
+            target_name="${name}.pdf"
+            cp "$orig_pdf" "$out/$target_name"
+            if [ "$orig_pdf" != "$target_name" ]; then
+              ln -s "$target_name" "$out/$orig_pdf"
+            fi
+          else
+            for pdf in *.pdf; do
+              [ -f "$pdf" ] || continue
+              target_name="${name}-$pdf"
+              cp "$pdf" "$out/$target_name"
+              ln -s "$target_name" "$out/$pdf"
+            done
+          fi
 
           runHook postInstall
         '';
@@ -266,6 +282,13 @@ rec {
           throw "p8n.latex.readProject: expected a src path or an attribute set containing `src`.";
 
       customArgs = if builtins.isAttrs args then args else { };
+      inferredName =
+        customArgs.name or (
+          if builtins.isPath src || builtins.isString src then
+            builtins.baseNameOf (toString src)
+          else
+            "document"
+        );
       hasLatexmkrc =
         builtins.pathExists (src + "/latexmkrc")
         || builtins.pathExists (src + "/.latexmkrc");
@@ -284,17 +307,24 @@ rec {
     in
     {
       inherit src;
+      name = inferredName;
       main = customArgs.main or defaultMain;
       hasCustomLatexmkrc = hasLatexmkrc;
 
       mkDocument =
         docArgs:
+        let
+          args' = if builtins.isAttrs docArgs then docArgs else { };
+        in
         mkDoc (
-          customArgs
-          // docArgs
+          {
+            name = inferredName;
+          }
+          // customArgs
+          // args'
           // {
             inherit src;
-            main = docArgs.main or (customArgs.main or defaultMain);
+            main = args'.main or (customArgs.main or defaultMain);
           }
         );
 
@@ -302,17 +332,23 @@ rec {
         shellArgs:
         mkSh (
           customArgs
-          // shellArgs
+          // (if builtins.isAttrs shellArgs then shellArgs else { })
         );
 
       mkWatch =
         watchArgs:
+        let
+          args' = if builtins.isAttrs watchArgs then watchArgs else { };
+        in
         mkWch (
-          customArgs
-          // watchArgs
+          {
+            name = "${inferredName}-watch";
+          }
+          // customArgs
+          // args'
           // {
             inherit src;
-            main = watchArgs.main or (customArgs.main or defaultMain);
+            main = args'.main or (customArgs.main or defaultMain);
           }
         );
     };
