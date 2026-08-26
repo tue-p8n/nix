@@ -311,7 +311,10 @@ let
         root = "$REPO_ROOT";
       };
 
-      allMissingBuildSystems = baseMissingBuildSystems // missingBuildSystems;
+      allMissingBuildSystems =
+        baseMissingBuildSystems
+        // (if editable then { ${name} = (baseMissingBuildSystems.${name} or [ ]) ++ [ "editables" ]; } else { })
+        // missingBuildSystems;
       overrideMissingBuildSystems =
         final: prev:
         lib.mapAttrs (
@@ -491,23 +494,6 @@ let
             pkg
         ) prev;
 
-      overrideEditableBuildSystems =
-        final: prev:
-        if !editable then
-          { }
-        else
-          lib.mapAttrs (
-            _: pkg:
-            if pkg ? overrideAttrs && (pkg.passthru.format or null) == "pyproject" then
-              pkg.overrideAttrs (old: {
-                nativeBuildInputs =
-                  (old.nativeBuildInputs or [ ])
-                  ++ (final.resolveBuildSystem { editables = [ ]; });
-              })
-            else
-              pkg
-          ) prev;
-
       userOverlays = baseOverlays ++ (normalizeOverlays overlays);
 
       pythonSet =
@@ -528,7 +514,6 @@ let
                 overrideAutoTorch
                 overrideSpecial
                 overrideLicenseFix
-                overrideEditableBuildSystems
               ]
               ++ userOverlays
             )
