@@ -8,12 +8,19 @@
 args:
 let
   isList = builtins.isList args;
+  resolveShell =
+    s:
+    if builtins.isAttrs s && (s ? mkShell && builtins.isFunction s.mkShell) && !(s ? type && s.type == "derivation") then
+      s.mkShell { }
+    else
+      s;
+
   rawShells =
     if isList then
-      args
+      map resolveShell args
     else
-      (if args ? base && args.base != null then [ args.base ] else [ ])
-      ++ (args.shells or [ ]);
+      (if args ? base && args.base != null then [ (resolveShell args.base) ] else [ ])
+      ++ (map resolveShell (args.shells or [ ]));
   validShells = lib.filter (s: s != null && s != false) rawShells;
 
   customArgs = if builtins.isAttrs args && !isList then args else { };

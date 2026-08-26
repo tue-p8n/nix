@@ -708,6 +708,18 @@ let
         && (builtins.length composed.inputsFrom == 1);
       expected = true;
     };
+    testComposeShellsAutoResolvesReadProject = {
+      expr =
+        let
+          paperProj = p8nInstance.latex.readProject ./fixtures/uv2nix-fixture;
+          plainBase = mockPkgs.mkShell { name = "myproj"; };
+          composed = p8nInstance.composeShells [ plainBase paperProj ];
+        in
+        (composed.name == "myproj-uv2nix-fixture")
+        && (builtins.length composed.inputsFrom == 1)
+        && (composed.passthru ? tex);
+      expected = true;
+    };
   };
 
   mockTexlive = name: {
