@@ -27,25 +27,50 @@ let
 
   ignoreConflicts = customArgs.ignoreConflicts or (customArgs.allowIncompatible or false);
 
+  getMeta =
+    s:
+    let
+      pt = if (builtins.isAttrs s && s ? passthru && builtins.isAttrs s.passthru) then s.passthru else { };
+    in
+    {
+      p8n = pt.p8n or (if builtins.isAttrs s then s.p8n or { } else { });
+      config = pt.config or (if builtins.isAttrs s then s.config or null else null);
+      venv = pt.venv or (if builtins.isAttrs s then s.venv or null else null);
+      pythonSet = pt.pythonSet or (if builtins.isAttrs s then s.pythonSet or null else null);
+      tex = pt.tex or (if builtins.isAttrs s then s.tex or null else null);
+      name = if builtins.isAttrs s then s.name or "anonymous" else "anonymous";
+    };
+
   # 1. Accelerator Compatibility Validation
   accelShells = lib.filter (
     s:
     let
-      cfg = s.passthru.config or null;
-      accelName = s.passthru.p8n.accelerator or (if cfg != null then cfg.name else null);
+      meta = getMeta s;
+      cfg = meta.config;
+      accelName = meta.p8n.accelerator or (if cfg != null then cfg.name else null);
     in
     cfg != null && cfg.acceleration != "none" && accelName != null && accelName != "cpu"
   ) validShells;
 
   accelTags = lib.unique (
-    map (s: s.passthru.p8n.accelerator or s.passthru.config.name) accelShells
+    map (
+      s:
+      let
+        meta = getMeta s;
+      in
+      meta.p8n.accelerator or (if meta.config != null then meta.config.name else null)
+    ) accelShells
   );
 
   checkAccelerators =
     if (!ignoreConflicts && builtins.length accelTags > 1) then
       let
         details = map (
-          s: "  - Shell '${s.name or "anonymous"}': accelerator '${s.passthru.p8n.accelerator or s.passthru.config.name}'"
+          s:
+          let
+            meta = getMeta s;
+          in
+          "  - Shell '${meta.name}': accelerator '${meta.p8n.accelerator or meta.config.name}'"
         ) accelShells;
       in
       throw ''
@@ -60,18 +85,25 @@ let
   # 2. Python Environment Invariance Validation
   pythonShells = lib.filter (
     s:
-    (s.passthru.p8n.category or null) == "python"
-    || (s.passthru ? venv)
-    || (s.passthru ? pythonSet)
+    let
+      meta = getMeta s;
+    in
+    (meta.p8n.category or null) == "python"
+    || meta.venv != null
+    || meta.pythonSet != null
   ) validShells;
 
   distinctPythonEnvironments = lib.unique (
     map (
       s:
       let
-        p8nMeta = s.passthru.p8n or { };
-        flavor = p8nMeta.flavor or "custom";
-        venvPath = if s.passthru ? venv then (toString s.passthru.venv) else (s.passthru.p8n.name or (s.name or "dynamic-uv"));
+        meta = getMeta s;
+        flavor = meta.p8n.flavor or "custom";
+        venvPath =
+          if meta.venv != null then
+            (toString meta.venv)
+          else
+            (meta.p8n.name or meta.name);
       in
       "${flavor}:${venvPath}"
     ) pythonShells
@@ -83,8 +115,12 @@ let
         descriptions = map (
           s:
           let
-            flavor = s.passthru.p8n.flavor or (if s.passthru ? venv then "uv2nix (pure-Nix venv)" else "dynamic Python");
-            name = s.passthru.p8n.name or (s.name or "anonymous");
+            meta = getMeta s;
+            flavor =
+              meta.p8n.flavor or (
+                if meta.venv != null then "uv2nix (pure-Nix venv)" else "dynamic Python"
+              );
+            name = meta.p8n.name or meta.name;
           in
           "  - '${name}': flavor '${flavor}'"
         ) pythonShells;
@@ -101,17 +137,22 @@ let
   # 3. LaTeX Version Invariance Validation
   latexShells = lib.filter (
     s:
-    (s.passthru.p8n.category or null) == "latex"
-    || (s.passthru ? tex)
+    let
+      meta = getMeta s;
+    in
+    (meta.p8n.category or null) == "latex" || meta.tex != null
   ) validShells;
 
   distinctTex = lib.unique (
     map (
       s:
-      if s.passthru ? tex then
-        (toString s.passthru.tex)
+      let
+        meta = getMeta s;
+      in
+      if meta.tex != null then
+        (toString meta.tex)
       else
-        (s.passthru.p8n.texlive or "custom")
+        (meta.p8n.texlive or "custom")
     ) latexShells
   );
 
@@ -121,8 +162,9 @@ let
         descriptions = map (
           s:
           let
-            ver = s.passthru.p8n.texlive or "custom";
-            name = s.name or "latex-shell";
+            meta = getMeta s;
+            ver = meta.p8n.texlive or "custom";
+            name = meta.name;
           in
           "  - '${name}': texlive '${ver}'"
         ) latexShells;
@@ -144,7 +186,7 @@ let
   extraPassthru = customArgs.passthru or { };
 
   mergedPassthru =
-    lib.foldl' (acc: s: acc // (s.passthru or { })) (base.passthru or { }) rest
+    lib.foldl' (acc: s: acc // (if s ? passthru && builtins.isAttrs s.passthru then s.passthru else { })) (if base ? passthru && builtins.isAttrs base.passthru then base.passthru else { }) rest
     // extraPassthru;
 
   composedShell =

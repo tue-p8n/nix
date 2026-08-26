@@ -683,6 +683,17 @@ let
         && (builtins.length composed.inputsFrom == 3);
       expected = true;
     };
+    testComposeShellsWithoutPassthruWorks = {
+      expr =
+        let
+          plainBase = mockPkgs.mkShell { name = "plain-base"; };
+          plainOther = mockPkgs.mkShell { name = "plain-other"; };
+          composed = p8nInstance.composeShells [ plainBase plainOther ];
+        in
+        (composed.name == "plain-base")
+        && (builtins.length composed.inputsFrom == 1);
+      expected = true;
+    };
   };
 
   mockTexlive = name: {
