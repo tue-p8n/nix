@@ -320,12 +320,31 @@ let
         ++ (args.excludeTorchPackages or [ ]);
 
       # Automatically detects source distribution (sdist) builds that depend on torch
-      # and injects prev.torch into nativeBuildInputs and PYTHONPATH.
+      # and injects prev.torch and its dependencies (nvidia-*, sympy, triton, etc.) into nativeBuildInputs and PYTHONPATH.
       overrideAutoTorch =
         _final: prev:
         if !effectiveAutoTorch || !(prev ? torch) then
           { }
         else
+          let
+            torchDeps =
+              if prev.torch ? passthru && prev.torch.passthru ? dependencies then
+                lib.attrNames prev.torch.passthru.dependencies
+              else
+                [ ];
+            nvidiaPkgs = builtins.filter (
+              n: lib.hasPrefix "nvidia-" n && prev ? ${n}
+            ) (builtins.attrNames prev);
+            relevantDeps = lib.unique (
+              [ "torch" ]
+              ++ (builtins.filter (n: prev ? ${n}) torchDeps)
+              ++ nvidiaPkgs
+            );
+            torchBuildInputs = map (n: prev.${n}) relevantDeps;
+            torchPythonPath = lib.concatStringsSep ":" (
+              map (n: "${prev.${n}}/${resolvedPython.sitePackages}") relevantDeps
+            );
+          in
           lib.mapAttrs (
             pkgName: pkg:
             let
@@ -347,11 +366,11 @@ let
             in
             if needsTorch then
               pkg.overrideAttrs (old: {
-                nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ prev.torch ];
+                nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ torchBuildInputs;
                 preConfigure =
                   (old.preConfigure or "")
                   + ''
-                    export PYTHONPATH="${prev.torch}/${resolvedPython.sitePackages}:''${PYTHONPATH:-}"
+                    export PYTHONPATH="${torchPythonPath}:''${PYTHONPATH:-}"
                   '';
                 autoPatchelfIgnoreMissingDeps = true;
               })
