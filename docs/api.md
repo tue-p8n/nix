@@ -133,19 +133,25 @@ Python environment builders powered by [uv](https://github.com/astral-sh/uv) and
 #### `p8n.uv.mkShell { accelerator?, name?, packages?, extraPackages?, env?, shellHook?, passthru? }`
 Interactive development shell with `uv`, compiler toolchains, `nix-ld` host GPU bindings, and `UV_TORCH_BACKEND` configured. Dependency resolution is performed interactively via runtime `uv sync`.
 
-#### `p8n.uv.readProject (workspaceRoot | { workspaceRoot, name?, overlays?, missingBuildSystems?, crossWheelLinkingPackages?, extraLibs? })`
+#### `p8n.uv.readProject (workspaceRoot | { workspaceRoot, name?, overlays?, missingBuildSystems?, crossWheelLinkingPackages?, extraLibs?, autoTorchBuildInputs?, extraTorchPackages?, excludeTorchPackages? })`
 Inspects a UV project workspace once and returns an object exposing metadata, hardware inference, and specialized target builders:
 
-- **`.mkVenv { accelerator?, editable?, python?, extras?, overlays?, missingBuildSystems?, crossWheelLinkingPackages?, extraLibs? }`**:
+- **`.mkVenv { accelerator?, editable?, python?, extras?, overlays?, missingBuildSystems?, crossWheelLinkingPackages?, extraLibs?, autoTorchBuildInputs?, extraTorchPackages?, excludeTorchPackages? }`**:
   Builds a pure Nix Python virtual environment derivation.
   - `accelerator` (default `"cpu"`): Shorthand string (`"cpu"`, `"cuda"`, `"cuda12_8"`, `"rocm"`), config set, or resolver function (`project.inferAccelerator "torch"`).
   - `editable` (default `false`): When `false`, all packages (workspace members and dependencies) are built into immutable `/nix/store/` paths.
   - `overlays` (`[final: prev: ...] | (final: prev: ...)`, default `[]`): Custom Python scope overlays.
   - `extras` (`[string] | null`, default `null`): Python extras to enable. When `null`, automatically selects the backend extra from `accelerator` (e.g. `["cu129"]`, `["rocm"]`, `["cpu"]`).
+  - `autoTorchBuildInputs` (`bool`, default `true`): Automatically detects C++/CUDA PyTorch extension packages built from source (sdists) that depend on `torch` and injects `prev.torch` into their `nativeBuildInputs` and `PYTHONPATH`.
+  - `extraTorchPackages` (`[string]`, default `[]`): Additional package names to explicitly treat as requiring `torch` at build time.
+  - `excludeTorchPackages` (`[string]`, default `[]`): Package names to exclude from automatic `torch` build input injection (opt-out).
 
-- **`.mkShell { accelerator?, editable?, python?, extras?, packages?, extraPackages?, env?, shellHook?, preCommit?, overlays? }`**:
+- **`.mkShell { accelerator?, editable?, python?, extras?, packages?, extraPackages?, env?, shellHook?, preCommit?, overlays?, autoTorchBuildInputs?, extraTorchPackages?, excludeTorchPackages? }`**:
   Builds an interactive development shell derivation (`nix develop`).
   - `editable` (default `true`): Automatically installs local workspace packages in PEP 660 editable mode linked to `$REPO_ROOT`, allowing live edits without rebuilds.
+
+- **`.pythonSet { accelerator?, python?, extras?, overlays?, ... }`**:
+  Exposes the underlying resolved `pyproject.nix` / `uv2nix` package set for ad-hoc overrides or custom derivations.
 
 - **`.mkOCI { accelerator?, editable?, tag?, packages?, extraPackages?, extraLibs?, env?, cmd?, entrypoint?, maxLayers?, venv? }`**:
   Builds a layered OCI/Docker container image derivation using `dockerTools.buildLayeredImage`.
@@ -158,9 +164,10 @@ Inspects a UV project workspace once and returns an object exposing metadata, ha
   Automatically analyzes the locked dependency graph in `uv.lock` for the target package (defaults to `"torch"`), inspecting `cuda-toolkit`, `cuda-bindings`, `rocm-core`, and wheel tags. Returns a typed accelerator config set.
 
 - **Built-in Auto-Fixups**:
+  - **Auto-Torch Build Systems**: Automatically resolves and provides `torch` during build/compilation for any PyPI sdist or workspace dependency that depends on PyTorch (e.g. `torchmatch`, `torch-scatter`, `flash-attn`, `deformable-convolution`).
   - **OpenCV Collisions**: Automatically resolves `site-packages/cv2` conflicts when both GUI (`opencv-python`) and headless (`opencv-python-headless`) packages exist in dependencies.
-  - **Missing Build Systems**: Automatically injects missing build dependencies (`setuptools`, `wheel`) for legacy sdists.
-  - **Cross-Wheel Dynamic Linking**: Patchelf auto-ignore rules for packages that dynamically link across separate wheels (`torch`, `nvidia-*`, `torchvision`, `triton`, `xformers`, `deformops`).
+  - **Missing Build Systems**: Automatically injects missing build dependencies (`setuptools`, `wheel`) for legacy sdists, and handles `torch` in custom `missingBuildSystems`.
+  - **Cross-Wheel Dynamic Linking**: Patchelf auto-ignore rules for packages that dynamically link across separate wheels (`torch`, `nvidia-*`, `torchvision`, `triton`, `xformers`, `deformops`, `torchmatch`).
   - **Numba TBB**: Automatically links Intel TBB for multi-core performance.
 
 #### `p8n.uv.mkProject`

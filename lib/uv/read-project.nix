@@ -273,10 +273,22 @@ let
         final: prev:
         lib.mapAttrs (
           pkgName: buildSystems:
+          let
+            # Filter out "torch" from resolveBuildSystem because pyproject-build-systems does not contain torch;
+            # torch is handled via prev.torch.
+            standardBuildSystems = builtins.filter (bs: bs != "torch") buildSystems;
+            hasTorch = builtins.elem "torch" buildSystems;
+          in
           prev.${pkgName}.overrideAttrs (old: {
             nativeBuildInputs =
               (old.nativeBuildInputs or [ ])
-              ++ (final.resolveBuildSystem (pkgs'.lib.genAttrs buildSystems (_: [ ])));
+              ++ (final.resolveBuildSystem (pkgs'.lib.genAttrs standardBuildSystems (_: [ ])))
+              ++ (lib.optional (hasTorch && prev ? torch) prev.torch);
+            preConfigure =
+              (old.preConfigure or "")
+              + lib.optionalString (hasTorch && prev ? torch) ''
+                export PYTHONPATH="${prev.torch}/${resolvedPython.sitePackages}:''${PYTHONPATH:-}"
+              '';
           })
         ) (lib.filterAttrs (pkgName: _: prev ? ${pkgName}) allMissingBuildSystems);
 
@@ -292,6 +304,60 @@ let
           else
             pkg
         ) prev;
+
+      effectiveAutoTorch =
+        if projectArgs ? autoTorchBuildInputs then
+          projectArgs.autoTorchBuildInputs
+        else
+          (projectArgs.autoTorch or (args.autoTorchBuildInputs or (args.autoTorch or true)));
+
+      allExtraTorchPackages =
+        (projectArgs.extraTorchPackages or [ ])
+        ++ (args.extraTorchPackages or [ ]);
+
+      allExcludeTorchPackages =
+        (projectArgs.excludeTorchPackages or [ ])
+        ++ (args.excludeTorchPackages or [ ]);
+
+      # Automatically detects source distribution (sdist) builds that depend on torch
+      # and injects prev.torch into nativeBuildInputs and PYTHONPATH.
+      overrideAutoTorch =
+        _final: prev:
+        if !effectiveAutoTorch || !(prev ? torch) then
+          { }
+        else
+          lib.mapAttrs (
+            pkgName: pkg:
+            let
+              format = pkg.passthru.format or null;
+              isSdist = format == "pyproject";
+              isExplicitExtra = lib.elem pkgName allExtraTorchPackages;
+              isExplicitExcluded = lib.elem pkgName allExcludeTorchPackages;
+
+              passthruDeps = pkg.passthru.dependencies or { };
+              rawDeps = pkg.passthru.package.dependencies or [ ];
+              buildSystemDeps = pkg.passthru.project.dependencies.build-systems or [ ];
+
+              dependsOnTorch =
+                (passthruDeps ? torch)
+                || (builtins.any (d: (d.name or "") == "torch") rawDeps)
+                || (builtins.any (d: (d.name or d) == "torch") buildSystemDeps);
+
+              needsTorch = !isExplicitExcluded && (isExplicitExtra || (isSdist && dependsOnTorch));
+            in
+            if needsTorch then
+              pkg.overrideAttrs (old: {
+                nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ prev.torch ];
+                preConfigure =
+                  (old.preConfigure or "")
+                  + ''
+                    export PYTHONPATH="${prev.torch}/${resolvedPython.sitePackages}:''${PYTHONPATH:-}"
+                  '';
+                autoPatchelfIgnoreMissingDeps = true;
+              })
+            else
+              pkg
+          ) prev;
 
       overrideSpecial =
         _: prev:
@@ -356,6 +422,7 @@ let
               ++ [
                 overrideMissingBuildSystems
                 overrideCrossWheelLinkingPackages
+                overrideAutoTorch
                 overrideSpecial
               ]
               ++ userOverlays
@@ -602,6 +669,13 @@ in
     ;
 
   name = projectName;
+
+  pythonSet =
+    args:
+    (mkVenv (
+      projectArgs
+      // (if builtins.isAttrs args then args else { })
+    )).pythonSet;
 
   # Compatibility helpers
   build = mkVenv;
