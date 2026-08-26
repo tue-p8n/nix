@@ -141,19 +141,6 @@ let
       "setuptools"
       "wheel"
     ];
-    vcs-versioning = [
-      "setuptools"
-      "wheel"
-      "packaging"
-    ];
-    vcs_versioning = [
-      "setuptools"
-      "wheel"
-      "packaging"
-    ];
-    hatchling = [
-      "editables"
-    ];
   };
 
   defaultCrossWheelLinkingPackages = [
@@ -307,14 +294,25 @@ let
         dependencies = pyprojectDeps;
       };
 
-      editableOverlay = workspace.mkEditablePyprojectOverlay {
+      rawEditableOverlay = workspace.mkEditablePyprojectOverlay {
         root = "$REPO_ROOT";
       };
+      editableOverlay =
+        final: prev:
+        let
+          base = rawEditableOverlay final prev;
+        in
+        if !(base ? ${name}) then
+          base
+        else
+          base
+          // {
+            ${name} = base.${name}.overrideAttrs (old: {
+              nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs'.python3Packages.editables ];
+            });
+          };
 
-      allMissingBuildSystems =
-        baseMissingBuildSystems
-        // (if editable then { ${name} = (baseMissingBuildSystems.${name} or [ ]) ++ [ "editables" ]; } else { })
-        // missingBuildSystems;
+      allMissingBuildSystems = baseMissingBuildSystems // missingBuildSystems;
       overrideMissingBuildSystems =
         final: prev:
         lib.mapAttrs (
