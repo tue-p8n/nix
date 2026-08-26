@@ -17,7 +17,7 @@ in
 rec {
   mkShell =
     {
-      name ? "typst-shell",
+      name ? "typst",
       pkgs ? defaultPkgs,
       packages ? (
         with pkgs;
@@ -222,7 +222,7 @@ rec {
         in
         mkSh (
           {
-            name = "${inferredName}-shell";
+            name = inferredName;
           }
           // customArgs
           // args'

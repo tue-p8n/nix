@@ -197,13 +197,17 @@ let
 
     testTagPreserved = {
       expr = (accelerators "cuda12_6").name;
-      expected = "cuda126";
+      expected = "cu126";
     };
 
     # Config module
     testConfigResolveCuda = {
       expr = (p8nInstance.config.resolve "cuda12_9").cuda.version;
       expected = "12.9";
+    };
+    testConfigResolveCuShorthand = {
+      expr = (p8nInstance.config.resolve "cu128").cuda.version;
+      expected = "12.8";
     };
     testConfigResolveRocm = {
       expr = (p8nInstance.config.resolve "rocm").acceleration;
@@ -584,7 +588,7 @@ let
           composed = p8nInstance.composeShells [ shell1 shell2 ];
         in
         (builtins.length composed.inputsFrom == 1)
-        && (composed.name == "shell-1-latex-shell")
+        && (composed.name == "shell-1-latex")
         && (composed.passthru ? config)
         && (composed.passthru ? tex);
       expected = true;
@@ -687,11 +691,11 @@ let
       expr =
         let
           cu128 = p8nInstance.uv.mkShell { name = "myproj"; accelerator = "cuda12_8"; };
-          paper = p8nInstance.latex.mkShell { name = "paper-shell"; };
+          paper = p8nInstance.latex.mkShell { name = "paper"; };
           composed = p8nInstance.composeShells [ cu128 paper ];
         in
         composed.name;
-      expected = "myproj-paper-cuda128";
+      expected = "myproj-paper+cu128";
     };
     testComposeShellsWithoutPassthruWorks = {
       expr =
@@ -700,7 +704,7 @@ let
           plainOther = mockPkgs.mkShell { name = "plain-other"; };
           composed = p8nInstance.composeShells [ plainBase plainOther ];
         in
-        (composed.name == "plain-base-plain-other-shell")
+        (composed.name == "plain-base-plain-other")
         && (builtins.length composed.inputsFrom == 1);
       expected = true;
     };

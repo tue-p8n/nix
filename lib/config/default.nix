@@ -6,21 +6,38 @@ let
   resolve =
     accel:
     let
-      m = builtins.match "(none|cpu|cuda|rocm)([0-9]+_[0-9]+)?" accel;
+      m = builtins.match "(none|cpu|cuda|cu|rocm)(_?[0-9]+[._]?[0-9]*)?" accel;
     in
     if m == null then
       throw ''
         accelerators.resolve: unrecognised accelerator "${accel}".
-        Expected: "none" | "cpu" | "cuda" | "cudaX_Y" | "rocm".
+        Expected: "none" | "cpu" | "cuda" | "cu" | "cu128" | "cuda12_8" | "rocm".
       ''
     else
       let
-        accelEnum = builtins.elemAt m 0;
-        accelVersion = builtins.elemAt m 1;
+        rawEnum = builtins.elemAt m 0;
+        rawVersion = builtins.elemAt m 1;
+        accelEnum = if rawEnum == "cu" then "cuda" else rawEnum;
+
+        cleanVersion =
+          if rawVersion == null then
+            null
+          else
+            let
+              v = lib.removePrefix "_" rawVersion;
+            in
+            if builtins.match "[0-9]+_[0-9]+" v != null then
+              builtins.replaceStrings [ "_" ] [ "." ] v
+            else if builtins.match "[0-9]+[.][0-9]+" v != null then
+              v
+            else if builtins.stringLength v == 3 then
+              "${builtins.substring 0 2 v}.${builtins.substring 2 1 v}"
+            else
+              v;
 
         parsedConfig =
-          if (accelVersion != null) then
-            { version = builtins.replaceStrings [ "_" ] [ "." ] accelVersion; }
+          if (cleanVersion != null) then
+            { version = cleanVersion; }
           else
             { };
 

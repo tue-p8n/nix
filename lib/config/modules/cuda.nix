@@ -55,7 +55,7 @@ in
     {
       inherit pkgs;
 
-      name = lib.mkDefault "cuda${version'}";
+      name = lib.mkDefault "cu${version'}";
 
       stdenv = pkgs.cudaPackages.backendStdenv;
       packages = [ pkgs.cudaPackages.cudatoolkit ];

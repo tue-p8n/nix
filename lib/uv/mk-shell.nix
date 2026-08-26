@@ -34,11 +34,13 @@ rec {
 
       nixglhost = pkgs'.nixglhost or null;
       libPath = pkgs'.lib.makeLibraryPath accelConfig.libraries.packages;
+      baseName = if name != null then name else "uv";
+      tag = accelConfig.name;
       resolvedName =
-        if name != null then
-          name
+        if accelConfig.acceleration != "none" && tag != "none" && tag != "cpu" then
+          "${baseName}+${tag}"
         else
-          "uv-${builtins.replaceStrings [ "." "cuda-" ] [ "_" "cuda" ] accelConfig.name}";
+          baseName;
       passThroughAttrs = stripCustomArgs mkShell args;
     in
     (pkgs'.mkShell.override { inherit (accelConfig) stdenv; }) (
@@ -66,27 +68,15 @@ rec {
 
         shellHook = ''
           ${internal.nixLdHook pkgs' libPath}
-
-          export SSL_CERT_FILE="${pkgs'.cacert}/etc/ssl/certs/ca-bundle.crt"
-          export NIX_SSL_CERT_FILE="${pkgs'.cacert}/etc/ssl/certs/ca-bundle.crt"
-
-          export PATH="${pkgs'.ccache}/bin:$PATH"
-          export CMAKE_C_COMPILER_LAUNCHER=ccache
-          export CMAKE_CXX_COMPILER_LAUNCHER=ccache
-          export CMAKE_CUDA_COMPILER_LAUNCHER=ccache
-
-          export LIBRARY_PATH="${libPath}:$LIBRARY_PATH"
-          export LD_LIBRARY_PATH="${libPath}:$LD_LIBRARY_PATH"
-
-          export UV_NO_SYNC="1"
-          export UV_LOCKED="1"
-          export UV_PYTHON_PREFERENCE="only-managed"
-          export UV_PYTHON_DOWNLOADS="auto"
-
           ${internal.exportEnv (accelConfig.environment.variables // env)}
           ${internal.repoRootHook}
           ${internal.hostGpuHook nixglhost}
           ${accelConfig.shellHook}
+
+          export UV_NO_SYNC=''${UV_NO_SYNC:-1}
+          export UV_LOCKED=''${UV_LOCKED:-1}
+          export UV_PYTHON_PREFERENCE=''${UV_PYTHON_PREFERENCE:-only-system}
+          export LD_LIBRARY_PATH="${libPath}:$LD_LIBRARY_PATH"
 
           export UV_PROJECT_ENVIRONMENT="$REPO_ROOT/.venvs/${resolvedName}"
           export VIRTUAL_ENV="$UV_PROJECT_ENVIRONMENT"
@@ -105,8 +95,8 @@ rec {
           p8n = {
             category = "python";
             flavor = "uv-dynamic";
-            accelerator = accelConfig.name;
-            name = resolvedName;
+            name = baseName;
+            accelerator = tag;
           };
         };
       }

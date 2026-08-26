@@ -255,6 +255,11 @@ Aliases: `p8n.combineShells`, `p8n.mergeShells`.
 - **Accelerator Slot (`category = "accelerator"`)**: Verifies that all non-CPU hardware acceleration targets match (e.g. catches conflicting CUDA versions such as `cu126` vs `cu128`).
 - **LaTeX Slot (`category = "latex"`)**: Verifies that TeX Live distributions are compatible.
 
+#### Automatic Shell Naming
+When composing shells, `p8n.composeShells` synthesizes a clean, standard identifier:
+- Composed shells join unique domain segments with `-` and append any hardware accelerator tag with `+` (e.g. `[ python paper ]` on CUDA 12.9 &rarr; `"egovideo-paper+cu129"`, on CPU &rarr; `"paper-typst"`).
+- Explicit `name` overrides (e.g. `{ name = "my-dev"; ... }`) take full precedence.
+
 ```nix
 # Short syntax (list — first shell acts as base):
 p8n.composeShells [ baseShell shellA shellB ... ]

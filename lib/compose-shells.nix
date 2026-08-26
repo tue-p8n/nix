@@ -198,13 +198,13 @@ let
       p8nName = meta.p8n.name or null;
       rawName = if p8nName != null then p8nName else (s.name or "shell");
       withoutShell = lib.removeSuffix "-shell" rawName;
-      withoutAccel =
+      withoutTag =
         if accelTag != null then
-          lib.removeSuffix "-${accelTag}" withoutShell
+          lib.removeSuffix "+${accelTag}" (lib.removeSuffix "-${accelTag}" withoutShell)
         else
           withoutShell;
     in
-    withoutAccel;
+    withoutTag;
 
   segments = lib.unique (map cleanSegment validShells);
   joinedSegments = lib.concatStringsSep "-" segments;
@@ -213,13 +213,11 @@ let
     if customName != null then
       customName
     else if builtins.length validShells <= 1 then
-      base.name or "composed-shell"
+      base.name or "composed"
     else if accelTag != null && accelTag != "none" && accelTag != "cpu" then
-      "${joinedSegments}-${accelTag}"
-    else if lib.hasSuffix "-shell" joinedSegments then
-      joinedSegments
+      "${joinedSegments}+${accelTag}"
     else
-      "${joinedSegments}-shell";
+      joinedSegments;
 
   mergedPassthru =
     lib.foldl' (acc: s: acc // (if s ? passthru && builtins.isAttrs s.passthru then s.passthru else { })) (if base ? passthru && builtins.isAttrs base.passthru then base.passthru else { }) rest

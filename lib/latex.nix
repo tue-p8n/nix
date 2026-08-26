@@ -65,7 +65,7 @@ in
 rec {
   mkShell =
     {
-      name ? "latex-shell",
+      name ? "latex",
       pkgs ? defaultPkgs,
       texlive ? (if version != null then version else "default"),
       version ? null,
@@ -339,7 +339,7 @@ rec {
         in
         mkSh (
           {
-            name = "${inferredName}-shell";
+            name = inferredName;
           }
           // customArgs
           // args'

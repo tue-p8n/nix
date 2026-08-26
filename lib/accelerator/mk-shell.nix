@@ -34,16 +34,25 @@ rec {
 
       nixglhost = pkgs'.nixglhost or null;
       libPath = pkgs'.lib.makeLibraryPath accelConfig.libraries.packages;
+      baseName =
+        if name != null then
+          name
+        else if accelConfig.acceleration != "none" then
+          accelConfig.acceleration
+        else
+          "accelerator";
+      tag = accelConfig.name;
+      resolvedName =
+        if accelConfig.acceleration != "none" && tag != "none" && tag != "cpu" then
+          "${baseName}+${tag}"
+        else
+          baseName;
       passThroughAttrs = stripCustomArgs mkShell args;
     in
     (pkgs'.mkShell.override { inherit (accelConfig) stdenv; }) (
       passThroughAttrs
       // {
-        name =
-          if name != null then
-            name
-          else
-            "accelerator-${builtins.replaceStrings [ "." "cuda-" ] [ "_" "cuda" ] accelConfig.name}";
+        name = resolvedName;
 
         packages =
           accelConfig.packages
@@ -72,7 +81,8 @@ rec {
           p8n = {
             category = "accelerator";
             flavor = "bare";
-            accelerator = accelConfig.name;
+            name = baseName;
+            accelerator = tag;
           };
         };
       }

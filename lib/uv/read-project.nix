@@ -505,7 +505,11 @@ let
     (pkgs'.mkShell.override { inherit (accelConfig) stdenv; }) (
       passThroughAttrs
       // {
-        name = "${name}-${tag}";
+        name =
+          if accelConfig.acceleration != "none" && tag != "none" && tag != "cpu" then
+            "${name}+${tag}"
+          else
+            name;
 
         packages =
           accelConfig.packages
