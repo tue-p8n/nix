@@ -230,6 +230,12 @@ let
     lib.foldl' (acc: s: acc // (if s ? passthru && builtins.isAttrs s.passthru then s.passthru else { })) (if base ? passthru && builtins.isAttrs base.passthru then base.passthru else { }) rest
     // extraPassthru;
 
+  restNativeBuildInputs = lib.concatMap (s: (s.nativeBuildInputs or [ ]) ++ (s.packages or [ ])) rest;
+  restBuildInputs = lib.concatMap (s: s.buildInputs or [ ]) rest;
+  restPropagatedNativeBuildInputs = lib.concatMap (s: s.propagatedNativeBuildInputs or [ ]) rest;
+  restPropagatedBuildInputs = lib.concatMap (s: s.propagatedBuildInputs or [ ]) rest;
+  restShellHooks = lib.concatMapStrings (s: lib.optionalString (s ? shellHook && s.shellHook != "") "\n${s.shellHook}") rest;
+
   composedShell =
     assert checkAccelerators;
     assert checkPython;
@@ -240,10 +246,21 @@ let
         inputsFrom = (old.inputsFrom or [ ]) ++ rest;
         nativeBuildInputs =
           (old.nativeBuildInputs or [ ])
+          ++ restNativeBuildInputs
           ++ extraPackages
           ++ (internal.preCommit.packages preCommit);
+        buildInputs =
+          (old.buildInputs or [ ])
+          ++ restBuildInputs;
+        propagatedNativeBuildInputs =
+          (old.propagatedNativeBuildInputs or [ ])
+          ++ restPropagatedNativeBuildInputs;
+        propagatedBuildInputs =
+          (old.propagatedBuildInputs or [ ])
+          ++ restPropagatedBuildInputs;
         shellHook =
           (old.shellHook or "")
+          + restShellHooks
           + (lib.optionalString (extraEnv != { }) "\n${internal.exportEnv extraEnv}")
           + (lib.optionalString (preCommit != null) "\n${internal.preCommit.hook preCommit}")
           + (lib.optionalString (extraShellHook != "") "\n${extraShellHook}");
