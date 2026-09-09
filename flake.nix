@@ -17,9 +17,11 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
-    # TeX Live baseline channels for legacy document templates
-    nixpkgs-24-05.url = "github:NixOS/nixpkgs/nixos-24.05";
-    nixpkgs-23-11.url = "github:NixOS/nixpkgs/nixos-23.11";
+    # TeX Live baseline channels, named by the TeX Live release each ships.
+    nixpkgs-25-11.url = "github:NixOS/nixpkgs/nixos-25.11"; # TeX Live 2025
+    nixpkgs-25-05.url = "github:NixOS/nixpkgs/nixos-25.05"; # TeX Live 2024
+    nixpkgs-24-05.url = "github:NixOS/nixpkgs/nixos-24.05"; # TeX Live 2023
+    nixpkgs-23-11.url = "github:NixOS/nixpkgs/nixos-23.11"; # TeX Live 2022
 
     # Flake framework
     flake-parts.url = "github:hercules-ci/flake-parts";

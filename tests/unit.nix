@@ -434,11 +434,17 @@ let
     };
     testLatexVersion2024 = {
       expr = (p8nInstance.latex.mkShell { texlive = "2024"; }).passthru.tex.outPath;
-      expected = "/nix/store/mock-tex-2024";
+      expected = "/nix/store/mock-tex-25-05";
     };
     testLatexVersion2023 = {
       expr = (p8nInstance.latex.mkShell { version = "2023"; }).passthru.tex.outPath;
-      expected = "/nix/store/mock-tex-2023";
+      expected = "/nix/store/mock-tex-24-05";
+    };
+    # A TeX Live release and the nixpkgs channel carrying it must not be
+    # confused: "2024" is TeX Live 2024, which ships in nixpkgs 25.05.
+    testLatexVersionChannelAlias = {
+      expr = (p8nInstance.latex.mkShell { texlive = "24.05"; }).passthru.tex.outPath;
+      expected = "/nix/store/mock-tex-24-05";
     };
     testLatexInvalidVersionThrows = {
       expr = (builtins.tryEval (p8nInstance.latex.mkShell { texlive = "1999"; }).passthru.tex).success;
@@ -737,8 +743,10 @@ let
     (import ../lib {
       inherit lib;
       inputs = inputs // {
-        nixpkgs-24-05 = mockNixpkgs "2024";
-        nixpkgs-23-11 = mockNixpkgs "2023";
+        nixpkgs-25-11 = mockNixpkgs "25-11";
+        nixpkgs-25-05 = mockNixpkgs "25-05";
+        nixpkgs-24-05 = mockNixpkgs "24-05";
+        nixpkgs-23-11 = mockNixpkgs "23-11";
       };
     }) (
       mockPkgs

@@ -217,7 +217,17 @@ Inspects a LaTeX repository root (auto-detecting `main.tex` or `paper.tex` and `
 - **`.mkWatch { name?, ... }`**: Runnable watch application for `apps.<name>` or `nix run .#<name>`.
 
 #### `p8n.latex.mkShell { texlive?, version?, texpkgs?, packages?, extraPackages?, env?, shellHook? }`
-- **`texlive` / `version`** (`string | attrs`, default `"default"`): Selects the TeX Live release baseline (`"default"`, `"2024"` / `"24.05"`, `"2023"` / `"23.11"`) or a custom TeX Live package set. Use `"2023"` for legacy document templates that have package incompatibilities with newer LaTeX kernels.
+- **`texlive` / `version`** (`string | attrs`, default `"default"`): Selects the TeX Live release baseline, or a custom TeX Live package set. Use an older release for document templates with package incompatibilities on newer LaTeX kernels.
+
+  | Value | TeX Live | nixpkgs channel |
+  |---|---|---|
+  | `"default"` / `"latest"` | whatever the project's own `nixpkgs` ships | — |
+  | `"2025"` / `"25.11"` | 2025 | `nixos-25.11` |
+  | `"2024"` / `"25.05"` | 2024 | `nixos-25.05` |
+  | `"2023"` / `"24.05"` | 2023 | `nixos-24.05` |
+  | `"2022"` / `"23.11"` | 2022 | `nixos-23.11` |
+
+  A nixpkgs release ships the TeX Live of an earlier year, so the two numbers never match. Pass the TeX Live release unless you specifically mean to pin a nixpkgs channel.
 - **`texpkgs`** (`ps -> attrs`, default `ps: { inherit (ps) scheme-full; }`): Custom TeX Live package set function.
 
 #### `p8n.latex.mkDocument { name?, src, texlive?, version?, main?, texpkgs?, packages?, extraPackages?, shellEscape?, latexmkFlags?, env? }`
