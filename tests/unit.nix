@@ -526,6 +526,22 @@ let
       expected = true;
     };
 
+    testFlakeModuleCudaOptions = {
+      expr =
+        let
+          module = import ../modules/cuda.nix;
+          evaluated = module {
+            inputs = { nixpkgs = mockPkgs; };
+            inherit lib;
+            flake-parts-lib = {
+              mkPerSystemOption = f: f { };
+            };
+          };
+        in
+        evaluated.options.perSystem.options.p8n.cuda ? overlays;
+      expected = true;
+    };
+
     testFlakeModuleFormattingStructure = {
       expr =
         let
