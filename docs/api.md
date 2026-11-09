@@ -619,5 +619,10 @@ in
 perSystem = { ... }: {
   # Optionally specify compute capabilities (e.g. ["8.6" "8.9"])
   p8n.cuda.capabilities = [ "8.6" "8.9" ];
+
+  # Optionally supply nixpkgs overlays for pkgs
+  p8n.cuda.overlays = [
+    (final: prev: { ... })
+  ];
 };
 ```
