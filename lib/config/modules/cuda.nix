@@ -63,6 +63,7 @@ in
         CUDA_HOME = "${pkgs.cudaPackages.cudatoolkit}";
         CUDA_PATH = "${pkgs.cudaPackages.cudatoolkit}";
         UV_TORCH_BACKEND = "cu${version'}";
+        TORCH_DONT_CHECK_COMPILER_ABI = "1";
       };
       shellHook = ''
         # Signal CUDA enabled

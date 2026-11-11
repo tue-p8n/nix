@@ -160,6 +160,10 @@ let
       expr = (accelerators "cuda12_6").environment.variables.CUDA_HOME;
       expected = "/nix/store/mock-cuda-12_6";
     };
+    testCudaTorchDontCheckCompilerAbi = {
+      expr = (accelerators "cuda").environment.variables.TORCH_DONT_CHECK_COMPILER_ABI;
+      expected = "1";
+    };
     testCudaPkgsRescoped = {
       expr = (accelerators "cuda12_6").pkgs.cudaPackages.cudatoolkit.version;
       expected = "12.6.0";
