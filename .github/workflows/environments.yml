@@ -5,10 +5,9 @@ name: Environments
 # lockfile moves, not when a module or a template changes, so this runs on
 # lockfile changes, weekly, and on demand rather than on every push.
 on:
-  # The lockfile updater opens its pull request with `GITHUB_TOKEN`, and
-  # GitHub starts no workflow runs from events that token creates, so the
-  # `pull_request` trigger never sees it. Running on push to main is what
-  # actually covers a lockfile bump.
+  # `update-flake.yml` invokes this workflow via `workflow_call` before
+  # fast-forwarding `main`, and its final `GITHUB_TOKEN` push does not start
+  # a duplicate run. Keeping `push` on `main` covers manual and PR merges.
   push:
     branches: [ main ]
     paths:
@@ -23,13 +22,27 @@ on:
       - 'shells/**'
       - 'lib/**'
   schedule:
-    # Mondays at 05:00 UTC. Scheduled runs use the default branch, so this
-    # reports on main rather than on any open pull request.
-    - cron: '0 5 * * 1'
+    # Thursdays at 05:00 UTC, staggered away from Monday's lockfile update.
+    - cron: '0 5 * * 4'
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Git ref or commit SHA to check out (defaults to the triggering ref).'
+        required: false
+        type: string
+        default: ''
+    secrets:
+      CACHIX_AUTH_TOKEN:
+        description: 'Cachix auth token for pushing derivations to tue-p8n.cachix.org.'
+        required: false
 
 permissions:
   contents: read
+
+concurrency:
+  group: environments-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Set here rather than through the installer's `extra_nix_config`, whose
 # values never reached the resolved substituter list on the runner. The
@@ -46,14 +59,18 @@ jobs:
   # builds are excluded.
   discover:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     outputs:
       attrs: ${{ steps.list.outputs.attrs }}
     steps:
       # On `pull_request` this checks out the merge ref, so a shell added by
       # the pull request is present here and lands in the matrix. Pinning this
       # to the head commit instead would drop the merge with the base branch.
-      - uses: actions/checkout@v4
-      - uses: cachix/install-nix-action@v31
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: cachix/install-nix-action@382a9ed9481c7c1f94f68b72ef105b3417c73877 # v32.1.0
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
@@ -133,7 +150,10 @@ jobs:
       matrix:
         attr: ${{ fromJSON(needs.discover.outputs.attrs) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
 
       # A CUDA toolchain closure alone is larger than the space the runner
       # image leaves free, and NCCL needs several gigabytes of scratch on top.
@@ -147,12 +167,12 @@ jobs:
             /opt/hostedtoolcache/CodeQL
           df -h /
 
-      - uses: cachix/install-nix-action@v31
+      - uses: cachix/install-nix-action@382a9ed9481c7c1f94f68b72ef105b3417c73877 # v32.1.0
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
-      - uses: cachix/cachix-action@v15
+      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
         with:
           name: tue-p8n
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
@@ -163,4 +183,6 @@ jobs:
         continue-on-error: ${{ secrets.CACHIX_AUTH_TOKEN == '' }}
 
       - name: Build ${{ matrix.attr }}
-        run: nix build -L .#${{ matrix.attr }}
+        env:
+          ATTR: ${{ matrix.attr }}
+        run: nix build -L ".#$ATTR"

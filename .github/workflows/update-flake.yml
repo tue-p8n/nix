@@ -6,34 +6,153 @@ on:
     - cron: '0 3 * * 1'
   workflow_dispatch:
 
+permissions: {}
+
+concurrency:
+  group: update-flake
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: write
-      pull-requests: write
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+      base_sha: ${{ steps.commit.outputs.base_sha }}
+      sha: ${{ steps.commit.outputs.sha }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: cachix/install-nix-action@v31
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - uses: cachix/install-nix-action@382a9ed9481c7c1f94f68b72ef105b3417c73877 # v32.1.0
         with:
           extra_nix_config: |
+            experimental-features = nix-command flakes
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
       - name: Update flake.lock
-        run: nix flake update --extra-experimental-features 'nix-command flakes'
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        run: nix flake update
+
+      - name: Commit flake.lock update
+        id: commit
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- flake.lock; then
+            echo "No flake.lock changes."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          base_sha="$(git rev-parse HEAD)"
+          git add -- flake.lock
+          staged="$(git diff --cached --name-only)"
+          if [ "$staged" != "flake.lock" ]; then
+            echo "Unexpected staged files: $staged" >&2
+            exit 1
+          fi
+
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m 'chore: update flake.lock'
+
+          new_sha="$(git rev-parse HEAD)"
+          {
+            echo "changed=true"
+            echo "base_sha=$base_sha"
+            echo "sha=$new_sha"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Push staging branch
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w 0)"
+          GIT_CONFIG_COUNT=1 \
+          GIT_CONFIG_KEY_0='http.https://github.com/.extraheader' \
+          GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth" \
+            git push --force origin HEAD:refs/heads/auto/flake-update
+
+  ci:
+    needs: update
+    if: needs.update.outputs.changed == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.update.outputs.sha }}
+    secrets:
+      CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+  environments:
+    needs: [ update, ci ]
+    if: needs.update.outputs.changed == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/environments.yml
+    with:
+      ref: ${{ needs.update.outputs.sha }}
+    secrets:
+      CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+  promote:
+    needs: [ update, ci, environments ]
+    if: needs.update.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: 'chore: update flake.lock'
-          branch: 'auto/flake-update'
-          delete-branch: true
-          title: 'chore: weekly flake.lock update'
-          body: |
-            Automated weekly update of `flake.lock` inputs.
+          ref: main
+          persist-credentials: false
 
-            Triggered by the `update-flake` workflow.
+      - name: Fast-forward main to tested commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_SHA: ${{ needs.update.outputs.base_sha }}
+          TESTED_SHA: ${{ needs.update.outputs.sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || [[ ! "$TESTED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid commit SHA" >&2
+            exit 1
+          fi
 
-            Please review changes to `nixpkgs` carefully — bump the pinned
-            `nixos-*` channel in `flake.nix` manually if a new stable release
-            is available.
-          labels: 'maintenance'
+          auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w 0)"
+          git_auth() {
+            GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0='http.https://github.com/.extraheader' \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth" \
+              git "$@"
+          }
+
+          git_auth fetch --no-tags --depth=1 origin +refs/heads/main:refs/remotes/origin/main
+          git_auth fetch --no-tags --depth=2 origin "$TESTED_SHA"
+
+          current_main="$(git rev-parse refs/remotes/origin/main)"
+          if [ "$current_main" != "$BASE_SHA" ]; then
+            echo "origin/main moved during checks (expected $BASE_SHA, found $current_main); aborting promotion." >&2
+            exit 1
+          fi
+
+          tested_parent="$(git rev-parse "${TESTED_SHA}^")"
+          if [ "$tested_parent" != "$BASE_SHA" ]; then
+            echo "Tested commit $TESTED_SHA is not a direct child of $BASE_SHA (parent: $tested_parent)." >&2
+            exit 1
+          fi
+
+          changed_files="$(git diff --name-only "$BASE_SHA" "$TESTED_SHA")"
+          if [ "$changed_files" != "flake.lock" ]; then
+            echo "Refusing to promote commit touching files other than flake.lock: $changed_files" >&2
+            exit 1
+          fi
+
+          git_auth push origin "$TESTED_SHA:refs/heads/main"
+          git_auth push origin --delete auto/flake-update
