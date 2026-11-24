@@ -28,6 +28,7 @@
 
     # Formatter
     treefmt.url = "github:numtide/treefmt-nix";
+    treefmt.inputs.nixpkgs.follows = "nixpkgs";
 
     # Pre-commit hooks
     git-hooks.url = "github:cachix/git-hooks.nix";
