@@ -47,7 +47,13 @@ in
           ruff.check = lib.mkDefault true;
           ruff.format = lib.mkDefault true;
           shellcheck.enable = lib.mkDefault true;
-          shfmt.enable = lib.mkDefault true;
+          shfmt = {
+            enable = lib.mkDefault true;
+            indent_size = lib.mkDefault (
+              if config.treefmt.programs.shfmt.useEditorConfig then null else 2
+            );
+            simplify = lib.mkDefault (!config.treefmt.programs.shfmt.useEditorConfig);
+          };
         };
         settings = {
           formatter = {
